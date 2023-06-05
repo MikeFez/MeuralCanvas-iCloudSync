@@ -28,10 +28,4 @@ ADD app /opt/app
 RUN cd /opt/app && pip3 install --no-cache-dir -r requirements.txt
 
 ENTRYPOINT ["/bin/sh", "-c", "cd /opt/app \
-    pip3 install --no-cache-dir -r requirements.txt && \
-    if ! [ -z $ENTER ]; then \
-        python3 app.py & \
-        /bin/bash; \
-    else \
-        python3 app.py;  \
-    fi"]
+    python3 main.py"]
