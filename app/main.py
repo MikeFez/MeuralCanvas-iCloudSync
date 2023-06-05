@@ -122,17 +122,14 @@ Metadata.verify_integrity_and_cleanup()
 
 def add_image_to_meural_playlist(meural_token, meural_playlist_id, image_id, image_checksum, image_filename):
     logger.info(f"Adding image to {MEURAL_PLAYLIST} Meural playlist")
-    added_to_playlist = False
     try:
         image_ids_in_playlist = meural.add_image_to_playlist(meural_token, image_id, meural_playlist_id)
-        added_to_playlist = True
-    except:
-        pass
-    if not added_to_playlist or image_id not in image_ids_in_playlist:
-        logger.error(f"[X] Failed to add {image_filename} to playlist")
-    else:
+        if image_id not in image_ids_in_playlist:
+            raise Exception("Meural indicated the image was not added to the playlist!")
         logger.info(f"[✓] Successfully added {image_filename} to playlist")
         Metadata.update_item(image_checksum, added_to_playlist=True)
+    except Exception as e:
+        logger.error(f"[X] Failed to add {image_filename} to playlist: {e}")
     return
 
 def delete_images_from_meural_if_needed(meural_token, album_checksums):
@@ -151,14 +148,15 @@ def delete_images_from_meural_if_needed(meural_token, album_checksums):
                     logger.info(f"[✓] Successfully deleted {image_filename} from local storage")
                     break
             logger.info(f"[✓] Successfully deleted {image_filename} from Meural")
-        except:
-            logger.error(f"[X] Failed to delete {image_filename} from Meural")
+        except Exception as e:
+            logger.error(f"[X] Failed to delete {image_filename} from Meural: {e}")
         return
 
 def scheduled_task(meural_token, meural_playlist_id):
     # Download items from iCloud which have not already been downloaded
     album_checksums = icloud.download_album(Metadata, image_dir=IMAGE_DIR)
-    delete_images_from_meural_if_needed(meural_token, album_checksums)
+    if album_checksums:
+        delete_images_from_meural_if_needed(meural_token, album_checksums)
 
     # Now find items not yet uploaded to Meural
     not_uploaded = Metadata.get_items_not_yet_uploaded()
@@ -171,8 +169,8 @@ def scheduled_task(meural_token, meural_playlist_id):
             logger.info(f"[X] Successfully uploaded {image_filename}")
             image_path = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
             os.rename(image_path, image_path.replace("/not_uploaded/", "/uploaded/"))
-        except:
-            logger.error(f"[X] Failed to upload image {image_filename}")
+        except Exception as e:
+            logger.error(f"[X] Failed to upload image {image_filename}: {e}")
             continue
         Metadata.update_item(image_checksum, meural_id=image_id)
         add_image_to_meural_playlist(meural_token, meural_playlist_id, image_id, image_checksum, image_filename)

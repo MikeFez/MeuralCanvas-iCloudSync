@@ -54,12 +54,13 @@ def upload_image(token, image_dir, filename):
     return response.json()['data']['id']
 
 def delete_image(token, image_id):
-    url = f"{URL_BASE}items/{image_id}"
+    url = f"{URL_BASE}/items/{image_id}"
     headers = {
         'Authorization': f"Token {token}",
         'x-meural-api-version': '3'
     }
     response = session.delete(url, headers=headers, allow_redirects=True, timeout=15)
+    print(response.json())
     return response.json()
 
 def add_image_to_playlist(token, image_id, playlist_id):
