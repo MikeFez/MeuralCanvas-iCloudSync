@@ -12,7 +12,6 @@ MEURAL_USERNAME = os.getenv("MEURAL_USERNAME")
 MEURAL_PASSWORD = os.getenv("MEURAL_PASSWORD")
 
 session = requests.Session()
-MAX_REQEUST_ATTEMPTS = 3
 
 def get_authentication_token():
     url = URL_BASE + "authenticate"
@@ -23,7 +22,7 @@ def get_authentication_token():
     headers = {
         'x-meural-api-version': '3'
     }
-    response = session.post(url, headers=headers, data=data, allow_redirects=True)
+    response = session.post(url, headers=headers, data=data, allow_redirects=True, timeout=15)
     return response.json()['token']
 
 def get_playlist_id(token):
@@ -32,7 +31,7 @@ def get_playlist_id(token):
         'Authorization': f"Token {token}",
         'x-meural-api-version': '3'
     }
-    response = session.get(url, headers=headers, allow_redirects=True)
+    response = session.get(url, headers=headers, allow_redirects=True, timeout=15)
     return [playlist['id'] for playlist in response.json()['data'] if playlist['name'] == MEURAL_PLAYLIST][0]
 
 def upload_image(token, image_dir, filename):
@@ -42,15 +41,7 @@ def upload_image(token, image_dir, filename):
         'x-meural-api-version': '3'
     }
     files = {'image': open(f"{image_dir}/{filename}", 'rb')}
-    uploaded = False
-    attempts = 1
-    while not uploaded and attempts <= 3:
-        try:
-            response = session.post(url, headers=headers, files=files, allow_redirects=True)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error uploading image {filename}: {e}")
-            attempts += 1
-            logger.info(f"Retrying, attempt {attempts} of {MAX_REQEUST_ATTEMPTS}...")
+    response = session.post(url, headers=headers, files=files, allow_redirects=True, timeout=30)
     return response.json()['data']['id']
 
 def add_image_to_playlist(token, image_id, playlist_id):
@@ -59,14 +50,5 @@ def add_image_to_playlist(token, image_id, playlist_id):
         'Authorization': f"Token {token}",
         'x-meural-api-version': '3'
     }
-    uploaded = False
-    attempts = 1
-    while not uploaded and attempts <= 3:
-        try:
-            response = session.post(url, headers=headers, allow_redirects=True)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error adding image to playlist: {e}")
-            attempts += 1
-            logger.info(f"Retrying, attempt {attempts} of {MAX_REQEUST_ATTEMPTS}...")
-
+    response = session.post(url, headers=headers, allow_redirects=True, timeout=15)
     return response.json()['data']['itemIds']

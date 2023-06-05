@@ -19,9 +19,6 @@ def download_album(Metadata, image_dir):
     album_id = ICLOUD_ALBUM_URL.split('#')[1]
     base_api_url = f"https://p23-sharedstreams.icloud.com/{album_id}/sharedstreams"
 
-    if not os.path.exists(image_dir):
-        os.makedirs(image_dir)
-
     stream_data = {"streamCtag": None}
     stream = post_json(f"{base_api_url}/webstream", stream_data)
     host = stream.get("X-Apple-MMe-Host")
@@ -47,11 +44,11 @@ def download_album(Metadata, image_dir):
                 original_filename = url.split('?')[0].split('/')[-1]
                 actual_filename = original_filename
                 if checksum not in Metadata.db:
-                    final_path = f"{image_dir}/{actual_filename}"
+                    final_path = f"{image_dir}/not_uploaded/{actual_filename}"
                     appended_int = 1
                     while os.path.isfile(final_path):
                         actual_filename = original_filename.replace(".", f" ({appended_int}).")
-                        final_path = f"{image_dir}/{actual_filename}"
+                        final_path = f"{image_dir}/not_uploaded/{actual_filename}"
                         appended_int += 1
 
                     logger.info(f"\tDownloading {actual_filename}")
