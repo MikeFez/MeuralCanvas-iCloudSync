@@ -25,7 +25,7 @@ def validate_env_vars():
 IMAGE_DIR = os.path.join(os.getcwd(), "data") if not os.getenv("IN_CONTAINER", False) else "/data"
 MEURAL_PLAYLIST = os.getenv("MEURAL_PLAYLIST")
 UPDATE_FREQUENCY_MINS = os.getenv("UPDATE_FREQUENCY_MINS")
-
+print(os.getenv("MEURAL_USERNAME"))
 class Metadata:
     metadata_loc = f"{IMAGE_DIR}/records.json"
     db = {}
