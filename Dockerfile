@@ -12,11 +12,10 @@ ENV ICLOUD_ALBUM_URL=
 ENV MEURAL_USERNAME=
 ENV MEURAL_PASSWORD=
 ENV MEURAL_PLAYLIST=
-ENV ENTER=
 
-RUN apt-get update && \
-    apt-get -y install nano && \
-    rm -rf /var/lib/apt/lists/*
+# RUN apt-get update && \
+#     apt-get -y install nano && \
+#     rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -g ${PGID} ${USERNAME} \
     && useradd -u ${PUID} -g ${USERNAME} -d /home/${USERNAME} ${USERNAME} \
@@ -27,5 +26,4 @@ ADD app /opt/app
 
 RUN cd /opt/app && pip3 install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["/bin/sh", "-c", "cd /opt/app \
-    python3 main.py"]
+ENTRYPOINT ["/bin/sh", "-c", "cd /opt/app && python3 main.py"]
