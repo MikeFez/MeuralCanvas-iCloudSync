@@ -22,7 +22,7 @@ def validate_env_vars():
         if os.getenv(env_var, None) is None:
             raise ValueError(f"{env_var} Environment variable not set")
 
-IMAGE_DIR = os.path.join(os.getcwd(), "icloud") if not os.getenv("IN_CONTAINER", False) else "/data"
+IMAGE_DIR = os.path.join(os.getcwd(), "data") if not os.getenv("IN_CONTAINER", False) else "/data"
 MEURAL_PLAYLIST = os.getenv("MEURAL_PLAYLIST")
 UPDATE_FREQUENCY_MINS = os.getenv("UPDATE_FREQUENCY_MINS")
 
