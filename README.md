@@ -2,7 +2,7 @@
 Synchronize shared iCloud photo albums with your Netgear Meural Canvas.
 
 ## What is this?
-The [Netgear Meural Canvas](https://www.netgear.com/home/digital-art-canvas/) is a digital photo frame which allows you to display your own photos, or photos from their library. While it has the ability to manually upload photos to it or link a iOS photo library to it, their software tends to choke on iOS Live Photos & those taken in portrait mode. In an album of 204 photos, I was only able to get 134 of them to upload properly - with no option to retry or see the ones which had failed.
+The [Netgear Meural Canvas](https://www.netgear.com/home/digital-art-canvas/) is a digital photo frame which allows you to display your own photos, or photos from their library. While it has the ability to manually upload photos or link a iOS photo library to it, their software tends to choke on iOS Live Photos & those taken in portrait mode. Using their app's sync tool for an album of 204 photos, I was only able to get 134 of them to upload properly - with no option to retry or see the ones which had failed.
 
 **This docker image downloads the highest resolution images available in a shared iCloud album as stills (converting Live/Portrait photos to jpeg), and uploads them via api to Meural while also linking them to an album. It will also delete images from Meural which have been removed from the iCloud album.**
 
