@@ -3,6 +3,7 @@ import json
 import os
 from loguru import logger
 import time
+from glob import glob
 import sys
 
 if not os.getenv("IN_CONTAINER", False):
@@ -16,7 +17,7 @@ except ValueError:
 logger.add(sys.stderr, level="INFO")
 
 def validate_env_vars():
-    env_vars = ["ICLOUD_ALBUM_URL", "MEURAL_USERNAME", "MEURAL_PASSWORD", "MEURAL_PLAYLIST", "UPDATE_FREQUENCY"]
+    env_vars = ["ICLOUD_ALBUM_URL", "MEURAL_USERNAME", "MEURAL_PASSWORD", "MEURAL_PLAYLIST", "UPDATE_FREQUENCY_MINS"]
     for env_var in env_vars:
         if os.getenv(env_var, None) is None:
             raise ValueError(f"{env_var} Environment variable not set")
@@ -54,7 +55,7 @@ class Metadata:
 
         for checksum, file_data in cls.db.items():
             not_uploaded_path = f"{IMAGE_DIR}/not_uploaded/{file_data['filename']}"
-            uploaded_path = f"{IMAGE_DIR}/uploaded/{file_data['filename']}"
+            uploaded_path = not_uploaded_path.replace("/not_uploaded/", "/uploaded/")
             if file_data['meural_id'] is None:
                 # File was not uploaded
                 if not os.path.isfile(not_uploaded_path):
@@ -95,6 +96,12 @@ class Metadata:
             json.dump(cls.db, json_file, indent=4)
 
     @classmethod
+    def delete_item(cls, image_checksum):
+        del cls.db[image_checksum]
+        with open(cls.metadata_loc, 'w') as json_file:
+            json.dump(cls.db, json_file, indent=4)
+
+    @classmethod
     def get_items_not_yet_uploaded(cls):
         not_uploaded = []
         for checksum, file_data in cls.db.items():
@@ -128,9 +135,30 @@ def add_image_to_meural_playlist(meural_token, meural_playlist_id, image_id, ima
         Metadata.update_item(image_checksum, added_to_playlist=True)
     return
 
+def delete_images_from_meural_if_needed(meural_token, album_checksums):
+    since_been_deleted_checksums = [checksum for checksum in Metadata.db.keys() if checksum not in album_checksums]
+    logger.info(f"Preparing to delete {len(since_been_deleted_checksums)} items from Meural")
+    for checksum in since_been_deleted_checksums:
+        image_filename = Metadata.db[checksum]['filename']
+        try:
+            meural.delete_image(meural_token, Metadata.db[checksum]['meural_id'])
+            Metadata.delete_item(checksum)
+
+            potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
+            for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
+                if os.path.isfile(potential_location):
+                    os.remove(potential_location)
+                    logger.info(f"[✓] Successfully deleted {image_filename} from local storage")
+                    break
+            logger.info(f"[✓] Successfully deleted {image_filename} from Meural")
+        except:
+            logger.error(f"[X] Failed to delete {image_filename} from Meural")
+        return
+
 def scheduled_task(meural_token, meural_playlist_id):
     # Download items from iCloud which have not already been downloaded
-    icloud.download_album(Metadata, image_dir=IMAGE_DIR)
+    album_checksums = icloud.download_album(Metadata, image_dir=IMAGE_DIR)
+    delete_images_from_meural_if_needed(meural_token, album_checksums)
 
     # Now find items not yet uploaded to Meural
     not_uploaded = Metadata.get_items_not_yet_uploaded()
@@ -142,7 +170,7 @@ def scheduled_task(meural_token, meural_playlist_id):
             image_id = meural.upload_image(meural_token, IMAGE_DIR+"/not_uploaded", image_filename)
             logger.info(f"[X] Successfully uploaded {image_filename}")
             image_path = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
-            os.rename(image_path, image_path.replace("not_uploaded", "uploaded"))
+            os.rename(image_path, image_path.replace("/not_uploaded/", "/uploaded/"))
         except:
             logger.error(f"[X] Failed to upload image {image_filename}")
             continue
@@ -169,4 +197,4 @@ if __name__ == "__main__":
         logger.info("Starting scheduled update!")
         scheduled_task(meural_token, meural_playlist_id)
         logger.info(f"Done! Pausing for {UPDATE_FREQUENCY_MINS} minutes until next update...")
-        time.sleep(UPDATE_FREQUENCY_MINS*60)
+        time.sleep(int(UPDATE_FREQUENCY_MINS)*60)

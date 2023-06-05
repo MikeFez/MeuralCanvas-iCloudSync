@@ -59,3 +59,4 @@ def download_album(Metadata, image_dir):
                     num_items_downloaded += 1
                 break
     logger.info(f"Downloaded {num_items_downloaded} new items from iCloud")
+    return checksums
