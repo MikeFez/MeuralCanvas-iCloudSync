@@ -190,6 +190,7 @@ if __name__ == "__main__":
     logger.info(f"MeuralCanvas-iCloudSync Launched For {MEURAL_PLAYLIST} Meural Playlist")
     validate_env_vars()
     meural_token = meural.get_authentication_token()
+    print(f"Meural Token: {meural_token}")
     meural_playlist_id = meural.get_playlist_id(meural_token)
     while True:
         logger.info("Starting scheduled update!")
