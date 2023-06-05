@@ -25,7 +25,7 @@ def validate_env_vars():
 IMAGE_DIR = os.path.join(os.getcwd(), "data") if not os.getenv("IN_CONTAINER", False) else "/data"
 MEURAL_PLAYLIST = os.getenv("MEURAL_PLAYLIST")
 UPDATE_FREQUENCY_MINS = os.getenv("UPDATE_FREQUENCY_MINS")
-print(os.getenv("MEURAL_USERNAME"))
+
 class Metadata:
     metadata_loc = f"{IMAGE_DIR}/records.json"
     db = {}
@@ -190,7 +190,6 @@ if __name__ == "__main__":
     logger.info(f"MeuralCanvas-iCloudSync Launched For {MEURAL_PLAYLIST} Meural Playlist")
     validate_env_vars()
     meural_token = meural.get_authentication_token()
-    print(f"Meural Token: {meural_token}")
     meural_playlist_id = meural.get_playlist_id(meural_token)
     while True:
         logger.info("Starting scheduled update!")
