@@ -7,7 +7,7 @@ if not os.getenv("IN_CONTAINER", False):
     load_dotenv()
 
 URL_BASE = "https://api.meural.com/v0"
-MEURAL_PLAYLIST = os.getenv("MEURAL_PLAYLIST")
+MEURAL_PLAYLISTS = [playlist.strip() for playlist in os.getenv("MEURAL_PLAYLIST").split(',')]
 MEURAL_USERNAME = os.getenv("MEURAL_USERNAME")
 MEURAL_PASSWORD = os.getenv("MEURAL_PASSWORD")
 
@@ -34,14 +34,14 @@ def get_uploaded_images(token):
     response = session.get(url, headers=headers, allow_redirects=True, timeout=15)
     return {image['name']: image['id'] for image in response.json()['data']}
 
-def get_playlist_id(token):
+def get_playlist_ids(token):
     url = f"{URL_BASE}/user/galleries?count=10&page=1"
     headers = {
         'Authorization': f"Token {token}",
         'x-meural-api-version': '3'
     }
     response = session.get(url, headers=headers, allow_redirects=True, timeout=15)
-    return [playlist['id'] for playlist in response.json()['data'] if playlist['name'] == MEURAL_PLAYLIST][0]
+    return {playlist['name']: playlist['id'] for playlist in response.json()['data'] if playlist['name'] in MEURAL_PLAYLISTS}
 
 def upload_image(token, image_dir, filename):
     url = f"{URL_BASE}/items"
@@ -74,6 +74,6 @@ def add_image_to_playlist(token, image_id, playlist_id):
 
 if __name__ == "__main__":
     token = get_authentication_token()
-    playlist_id = get_playlist_id(token)
+    playlist_id = get_playlist_ids(token)
     print(token)
     print(playlist_id)

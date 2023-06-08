@@ -17,13 +17,12 @@ except ValueError:
 logger.add(sys.stderr, level="INFO")
 
 def validate_env_vars():
-    env_vars = ["ICLOUD_ALBUM_URL", "MEURAL_USERNAME", "MEURAL_PASSWORD", "MEURAL_PLAYLIST", "UPDATE_FREQUENCY_MINS"]
+    env_vars = ["ICLOUD_ALBUM_URL", "MEURAL_USERNAME", "MEURAL_PASSWORD", "MEURAL_PLAYLISTS", "UPDATE_FREQUENCY_MINS"]
     for env_var in env_vars:
         if os.getenv(env_var, None) is None:
             raise ValueError(f"{env_var} Environment variable not set")
 
 IMAGE_DIR = os.path.join(os.getcwd(), "data") if not os.getenv("IN_CONTAINER", False) else "/data"
-MEURAL_PLAYLIST = os.getenv("MEURAL_PLAYLIST")
 UPDATE_FREQUENCY_MINS = os.getenv("UPDATE_FREQUENCY_MINS")
 
 class Metadata:
@@ -32,7 +31,7 @@ class Metadata:
     item_template = {
         "filename": None,
         "meural_id": None,
-        "added_to_playlist": None
+        "added_to_playlist": []
     }
 
     @classmethod
@@ -87,11 +86,14 @@ class Metadata:
             json.dump(cls.db, json_file, indent=4)
 
     @classmethod
-    def update_item(cls, image_checksum, meural_id=None, added_to_playlist=False):
-        if meural_id is not None:
-            cls.db[image_checksum]['meural_id'] = meural_id
-        if added_to_playlist is not None:
-            cls.db[image_checksum]['added_to_playlist'] = added_to_playlist
+    def mark_uploaded_to_meural(cls, image_checksum, meural_id):
+        cls.db[image_checksum]['meural_id'] = meural_id
+        with open(cls.metadata_loc, 'w') as json_file:
+            json.dump(cls.db, json_file, indent=4)
+
+    @classmethod
+    def mark_added_to_playlist(cls, image_checksum, playlist):
+        cls.db[image_checksum]['added_to_playlist'].append(playlist)
         with open(cls.metadata_loc, 'w') as json_file:
             json.dump(cls.db, json_file, indent=4)
 
@@ -110,24 +112,25 @@ class Metadata:
         return not_uploaded
 
     @classmethod
-    def get_items_not_added_to_playlist(cls):
-        not_added_to_playlist = []
+    def get_items_not_added_to_playlist(cls, playlists_to_check):
+        not_added_to_playlist = {playlist: [] for playlist in playlists_to_check}
         for checksum, file_data in cls.db.items():
-            if file_data['meural_id'] is not None and file_data['added_to_playlist'] is False:
-                not_added_to_playlist.append((checksum, file_data['filename'], file_data['meural_id']))
+            for playlist in playlists_to_check:
+                if file_data['meural_id'] is not None and playlist not in file_data['added_to_playlist']:
+                    not_added_to_playlist[playlist].append((checksum, file_data['filename'], file_data['meural_id']))
         return not_added_to_playlist
 
 Metadata.initialize()
 Metadata.verify_integrity_and_cleanup()
 
-def add_image_to_meural_playlist(meural_token, meural_playlist_id, image_id, image_checksum, image_filename):
-    logger.info(f"Adding image to {MEURAL_PLAYLIST} Meural playlist")
+def add_image_to_meural_playlists(meural_token, meural_playlist_name, meural_playlist_id, image_id, image_checksum, image_filename):
     try:
+        logger.info(f"Adding image to {meural_playlist_name} Meural playlist(s)")
         image_ids_in_playlist = meural.add_image_to_playlist(meural_token, image_id, meural_playlist_id)
         if image_id not in image_ids_in_playlist:
             raise Exception("Meural indicated the image was not added to the playlist!")
         logger.info(f"[✓] Successfully added {image_filename} to playlist")
-        Metadata.update_item(image_checksum, added_to_playlist=True)
+        Metadata.mark_added_to_playlist(image_checksum, meural_playlist_name)
     except Exception as e:
         logger.error(f"[X] Failed to add {image_filename} to playlist: {e}")
     return
@@ -152,7 +155,7 @@ def delete_images_from_meural_if_needed(meural_token, album_checksums):
             logger.error(f"[X] Failed to delete {image_filename} from Meural: {e}")
         return
 
-def scheduled_task(meural_token, meural_playlist_id):
+def scheduled_task(meural_token, meural_playlist_data):
     # Download items from iCloud which have not already been downloaded
     album_checksums = icloud.download_album(Metadata, image_dir=IMAGE_DIR)
     if album_checksums:
@@ -161,7 +164,7 @@ def scheduled_task(meural_token, meural_playlist_id):
     # Now find items not yet uploaded to Meural
     not_uploaded = Metadata.get_items_not_yet_uploaded()
     len_items_not_uploaded = len(not_uploaded)
-    logger.info(f"Preparing to upload {len_items_not_uploaded} items to the {MEURAL_PLAYLIST} Meural playlist")
+    logger.info(f"Preparing to upload {len_items_not_uploaded} items to Meural")
     for idx, (image_checksum, image_filename) in enumerate(not_uploaded, start=1):
         logger.info(f"[{idx}/{len_items_not_uploaded}] Uploading {image_filename}")
         try:
@@ -172,27 +175,30 @@ def scheduled_task(meural_token, meural_playlist_id):
         except Exception as e:
             logger.error(f"[X] Failed to upload image {image_filename}: {e}")
             continue
-        Metadata.update_item(image_checksum, meural_id=image_id)
-        add_image_to_meural_playlist(meural_token, meural_playlist_id, image_id, image_checksum, image_filename)
+        Metadata.mark_uploaded_to_meural(image_checksum, image_id)
+        for playlist_name, playlist_id in meural_playlist_data.items():
+            add_image_to_meural_playlists(meural_token, playlist_name, playlist_id, image_id, image_checksum, image_filename)
 
     # Now find items which were previously uploaded, but not added to the Meural playlist
-    not_added_to_playlist = Metadata.get_items_not_added_to_playlist()
-    len_items_not_added_to_playlist = len(not_added_to_playlist)
+    not_added_to_playlist = Metadata.get_items_not_added_to_playlist(meural_playlist_data.keys())
     if not_added_to_playlist:
-        logger.info(f"{len_items_not_added_to_playlist} items were previously uploaded, but not added to the {MEURAL_PLAYLIST} Meural playlist")
-        for idx, (image_checksum, image_filename, image_id) in enumerate(not_added_to_playlist, start=1):
-            logger.info(f"[{idx}/{len_items_not_added_to_playlist}] Adding {image_filename} to playlist")
-            add_image_to_meural_playlist(meural_token, meural_playlist_id, image_id, image_checksum, image_filename)
+        for playlist_name, items_not_added in not_added_to_playlist.items():
+            len_items_not_added_to_playlist = len(items_not_added)
+            playlist_id = meural_playlist_data[playlist_name]
+            logger.info(f"{len_items_not_added_to_playlist} items were previously uploaded, but not added to the {playlist_name} Meural playlist")
+            for idx, (image_checksum, image_filename, image_id) in enumerate(items_not_added, start=1):
+                logger.info(f"[{idx}/{len_items_not_added_to_playlist}] Adding {image_filename} to playlist")
+                add_image_to_meural_playlists(meural_token, playlist_name, playlist_id, image_id, image_checksum, image_filename)
 
 
 #TODO: Prune items that are no longer in iCloud
 if __name__ == "__main__":
-    logger.info(f"MeuralCanvas-iCloudSync Launched For {MEURAL_PLAYLIST} Meural Playlist")
+    logger.info(f"MeuralCanvas-iCloudSync Launched")
     validate_env_vars()
     meural_token = meural.get_authentication_token()
-    meural_playlist_id = meural.get_playlist_id(meural_token)
+    meural_playlist_data = meural.get_playlist_ids(meural_token)
     while True:
         logger.info("Starting scheduled update!")
-        scheduled_task(meural_token, meural_playlist_id)
+        scheduled_task(meural_token, meural_playlist_data)
         logger.info(f"Done! Pausing for {UPDATE_FREQUENCY_MINS} minutes until next update...")
         time.sleep(int(UPDATE_FREQUENCY_MINS)*60)
