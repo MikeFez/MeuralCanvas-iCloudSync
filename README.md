@@ -6,6 +6,8 @@ The [Netgear Meural Canvas](https://www.netgear.com/home/digital-art-canvas/) is
 
 **This docker image downloads the highest resolution images available in a shared iCloud album as stills (converting Live/Portrait photos to jpeg), and uploads them via api to Meural while also linking them to an album. It will also delete images from Meural which have been removed from the iCloud album.**
 
+Note: In order to access the iCloud album, it must first be [shared with a public link](https://support.apple.com/guide/icloud/share-photos-and-videos-mm93a9b98683/icloud). The link generated allows public viewing of the album, but only to those which are given the URL.
+
 ## Usage
 ### docker-compose (recommended, [click here for more info](https://docs.linuxserver.io/general/docker-compose))
 
