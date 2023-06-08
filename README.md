@@ -33,7 +33,7 @@ Container images are configured using parameters passed at runtime (such as thos
 
 **Note: There are no defaults for the parameters mentioned here - each one MUST be provided**
 
-| Parameter | Default | Function |
+| Parameter | Function |
 | :----: | --- |
 | `-e ICLOUD_ALBUM_URL` | URL to the iCloud album which contains the photos you want synced. |
 | `-e MEURAL_USERNAME` | Your Netgear Meural email address. |
