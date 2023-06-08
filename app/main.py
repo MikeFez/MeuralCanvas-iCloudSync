@@ -125,7 +125,7 @@ Metadata.verify_integrity_and_cleanup()
 
 def add_image_to_meural_playlists(meural_token, meural_playlist_name, meural_playlist_id, image_id, image_checksum, image_filename):
     try:
-        logger.info(f"Adding image to {meural_playlist_name} Meural playlist(s)")
+        logger.info(f"Adding image to {meural_playlist_name} Meural playlist")
         image_ids_in_playlist = meural.add_image_to_playlist(meural_token, image_id, meural_playlist_id)
         if image_id not in image_ids_in_playlist:
             raise Exception("Meural indicated the image was not added to the playlist!")
