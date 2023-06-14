@@ -238,12 +238,10 @@ if __name__ == "__main__":
     Metadata.initialize()
     Metadata.verify_integrity_and_cleanup()
 
-    print(Metadata.config)
-
-    # meural_token = meural.get_authentication_token()
-    # meural_playlist_ids_by_name = meural.get_playlist_ids(meural_token)
-    # while True:
-    #     logger.info("Starting scheduled update!")
-    #     scheduled_task(meural_token, meural_playlist_ids_by_name)
-    #     logger.info(f"Done! Pausing for {UPDATE_FREQUENCY_MINS} minutes until next update...")
-    #     time.sleep(int(UPDATE_FREQUENCY_MINS)*60)
+    meural_token = meural.get_authentication_token()
+    meural_playlist_ids_by_name = meural.get_playlist_ids(meural_token)
+    while True:
+        logger.info("Starting scheduled update!")
+        scheduled_task(meural_token, meural_playlist_ids_by_name)
+        logger.info(f"Done! Pausing for {UPDATE_FREQUENCY_MINS} minutes until next update...")
+        time.sleep(int(UPDATE_FREQUENCY_MINS)*60)
