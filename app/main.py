@@ -106,68 +106,70 @@ class Metadata:
 
 
     @classmethod
-    def add_item(cls, checksum=None, filename=None):
+    def add_item(cls, icloud_album_url, checksum, filename):
         record = cls.item_template.copy()
         record['filename'] = filename
-        cls.db[checksum] = record
+        if icloud_album_url not in cls.db:
+            cls.db[icloud_album_url] = {}
+        cls.db[icloud_album_url][checksum] = record
         with open(cls.metadata_loc, 'w') as json_file:
             json.dump(cls.db, json_file, indent=4)
 
     @classmethod
-    def mark_uploaded_to_meural(cls, image_checksum, meural_id):
-        cls.db[image_checksum]['meural_id'] = meural_id
+    def mark_uploaded_to_meural(cls, icloud_album_url, image_checksum, meural_id):
+        cls.db[icloud_album_url][image_checksum]['meural_id'] = meural_id
         with open(cls.metadata_loc, 'w') as json_file:
             json.dump(cls.db, json_file, indent=4)
 
     @classmethod
-    def mark_added_to_playlist(cls, image_checksum, playlist):
-        cls.db[image_checksum]['added_to_playlist'].append(playlist)
+    def mark_added_to_playlist(cls, icloud_album_url, image_checksum, playlist):
+        cls.db[icloud_album_url][image_checksum]['added_to_playlist'].append(playlist)
         with open(cls.metadata_loc, 'w') as json_file:
             json.dump(cls.db, json_file, indent=4)
 
     @classmethod
-    def delete_item(cls, image_checksum):
-        del cls.db[image_checksum]
+    def delete_item(cls, icloud_album_url, image_checksum):
+        del cls.db[icloud_album_url][image_checksum]
         with open(cls.metadata_loc, 'w') as json_file:
             json.dump(cls.db, json_file, indent=4)
 
     @classmethod
-    def get_items_not_yet_uploaded(cls):
+    def get_items_not_yet_uploaded(cls, icloud_album_url):
         not_uploaded = []
-        for checksum, file_data in cls.db.items():
+        for checksum, file_data in cls.db[icloud_album_url].items():
             if file_data['meural_id'] is None:
                 not_uploaded.append((checksum, file_data['filename']))
         return not_uploaded
 
     @classmethod
-    def get_items_not_added_to_playlist(cls, playlists_to_check):
+    def get_items_not_added_to_playlist(cls, icloud_album_url, playlists_to_check):
         not_added_to_playlist = {playlist: [] for playlist in playlists_to_check}
-        for checksum, file_data in cls.db.items():
+        for checksum, file_data in cls.db[icloud_album_url].items():
             for playlist in playlists_to_check:
                 if file_data['meural_id'] is not None and playlist not in file_data['added_to_playlist']:
                     not_added_to_playlist[playlist].append((checksum, file_data['filename'], file_data['meural_id']))
         return not_added_to_playlist
 
-def add_image_to_meural_playlists(meural_token, meural_playlist_name, meural_playlist_id, image_id, image_checksum, image_filename):
+def add_image_to_meural_playlists(meural_token, meural_playlist_name, meural_playlist_id, icloud_album_url, image_id, image_checksum, image_filename):
     try:
         logger.info(f"Adding image to {meural_playlist_name} Meural playlist")
         image_ids_in_playlist = meural.add_image_to_playlist(meural_token, image_id, meural_playlist_id)
         if image_id not in image_ids_in_playlist:
             raise Exception("Meural indicated the image was not added to the playlist!")
         logger.info(f"[✓] Successfully added {image_filename} to playlist")
-        Metadata.mark_added_to_playlist(image_checksum, meural_playlist_name)
+        Metadata.mark_added_to_playlist(icloud_album_url, image_checksum, meural_playlist_name)
     except Exception as e:
         logger.error(f"[X] Failed to add {image_filename} to playlist: {e}")
     return
 
-def delete_images_from_meural_if_needed(meural_token, album_checksums):
+def delete_images_from_meural_if_needed(meural_token, icloud_album_url, album_checksums):
     since_been_deleted_checksums = [checksum for checksum in Metadata.db.keys() if checksum not in album_checksums]
     logger.info(f"Preparing to delete {len(since_been_deleted_checksums)} items from Meural")
     for checksum in since_been_deleted_checksums:
         image_filename = Metadata.db[checksum]['filename']
         try:
             meural.delete_image(meural_token, Metadata.db[checksum]['meural_id'])
-            Metadata.delete_item(checksum)
+            Metadata.delete_item(icloud_album_url, checksum)
 
             potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
             for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
@@ -199,10 +201,10 @@ def scheduled_task(meural_token, meural_playlist_ids_by_name):
         # Download items from iCloud which have not already been downloaded
         album_checksums = icloud.download_album(Metadata, icloud_album_url, IMAGE_DIR)
         if album_checksums:
-            delete_images_from_meural_if_needed(meural_token, album_checksums)
+            delete_images_from_meural_if_needed(meural_token, icloud_album_url, album_checksums)
 
         # Now find items not yet uploaded to Meural
-        not_uploaded = Metadata.get_items_not_yet_uploaded()
+        not_uploaded = Metadata.get_items_not_yet_uploaded(icloud_album_url)
         len_items_not_uploaded = len(not_uploaded)
         logger.info(f"Preparing to upload {len_items_not_uploaded} items to Meural")
         for idx, (image_checksum, image_filename) in enumerate(not_uploaded, start=1):
@@ -215,12 +217,12 @@ def scheduled_task(meural_token, meural_playlist_ids_by_name):
             except Exception as e:
                 logger.error(f"[X] Failed to upload image {image_filename}: {e}")
                 continue
-            Metadata.mark_uploaded_to_meural(image_checksum, image_id)
+            Metadata.mark_uploaded_to_meural(icloud_album_url, image_checksum, image_id)
             for playlist_name, playlist_id in this_album_playlist_ids_by_name:
-                add_image_to_meural_playlists(meural_token, playlist_name, playlist_id, image_id, image_checksum, image_filename)
+                add_image_to_meural_playlists(meural_token, playlist_name, playlist_id, icloud_album_url, image_id, image_checksum, image_filename)
 
         # Now find items which were previously uploaded, but not added to the Meural playlist
-        not_added_to_playlist = Metadata.get_items_not_added_to_playlist(this_album_playlist_ids_by_name.keys())
+        not_added_to_playlist = Metadata.get_items_not_added_to_playlist(icloud_album_url, this_album_playlist_ids_by_name.keys())
         if not_added_to_playlist:
             for playlist_name, items_not_added in not_added_to_playlist.items():
                 len_items_not_added_to_playlist = len(items_not_added)
@@ -228,7 +230,7 @@ def scheduled_task(meural_token, meural_playlist_ids_by_name):
                 logger.info(f"{len_items_not_added_to_playlist} items were previously uploaded, but not added to the {playlist_name} Meural playlist")
                 for idx, (image_checksum, image_filename, image_id) in enumerate(items_not_added, start=1):
                     logger.info(f"[{idx}/{len_items_not_added_to_playlist}] Adding {image_filename} to playlist")
-                    add_image_to_meural_playlists(meural_token, playlist_name, playlist_id, image_id, image_checksum, image_filename)
+                    add_image_to_meural_playlists(meural_token, playlist_name, playlist_id, icloud_album_url, image_id, image_checksum, image_filename)
 
 
 #TODO: Prune items that are no longer in iCloud
