@@ -79,30 +79,30 @@ class Metadata:
             if not os.path.isdir(path):
                 logger.info(f"Creating directory {path}")
                 os.makedirs(path)
-
-        for checksum, file_data in cls.db.items():
-            not_uploaded_path = f"{IMAGE_DIR}/not_uploaded/{file_data['filename']}"
-            uploaded_path = not_uploaded_path.replace("/not_uploaded/", "/uploaded/")
-            if file_data['meural_id'] is None:
-                # File was not uploaded
-                if not os.path.isfile(not_uploaded_path):
-                    logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/not_uploaded")
-                    if not os.path.isfile(uploaded_path):
-                        logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/uploaded")
-                        raise EnvironmentError("File is missing!")
-                    else:
-                        logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/uploaded - moving to proper directory")
-                        os.rename(uploaded_path, not_uploaded_path)
-            else:
-                # File was uploaded
-                if not os.path.isfile(uploaded_path):
-                    logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/uploaded")
+        for icloud_album_url, album_db in cls.db.items():
+            for checksum, file_data in album_db.items():
+                not_uploaded_path = f"{IMAGE_DIR}/not_uploaded/{file_data['filename']}"
+                uploaded_path = not_uploaded_path.replace("/not_uploaded/", "/uploaded/")
+                if file_data['meural_id'] is None:
+                    # File was not uploaded
                     if not os.path.isfile(not_uploaded_path):
-                        logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/not_uploaded")
-                        raise EnvironmentError("File is missing!")
-                    else:
-                        logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/not_uploaded - moving to proper directory")
-                        os.rename(not_uploaded_path, uploaded_path)
+                        logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/not_uploaded")
+                        if not os.path.isfile(uploaded_path):
+                            logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/uploaded")
+                            raise EnvironmentError("File is missing!")
+                        else:
+                            logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/uploaded - moving to proper directory")
+                            os.rename(uploaded_path, not_uploaded_path)
+                else:
+                    # File was uploaded
+                    if not os.path.isfile(uploaded_path):
+                        logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/uploaded")
+                        if not os.path.isfile(not_uploaded_path):
+                            logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/not_uploaded")
+                            raise EnvironmentError("File is missing!")
+                        else:
+                            logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/not_uploaded - moving to proper directory")
+                            os.rename(not_uploaded_path, uploaded_path)
 
 
     @classmethod
