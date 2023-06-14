@@ -7,16 +7,13 @@ if not os.getenv("IN_CONTAINER", False):
     from dotenv import load_dotenv
     load_dotenv()
 
-
-ICLOUD_ALBUM_URL = os.getenv("ICLOUD_ALBUM_URL")
-
 def post_json(url, data):
     response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
     return response.json()
 
-def download_album(Metadata, image_dir):
+def download_album(Metadata, icloud_album_url, image_dir):
     logger.info("Retrieving iCloud album information...")
-    album_id = ICLOUD_ALBUM_URL.split('#')[1]
+    album_id = icloud_album_url.split('#')[1]
     base_api_url = f"https://p23-sharedstreams.icloud.com/{album_id}/sharedstreams"
 
     stream_data = {"streamCtag": None}
@@ -26,7 +23,9 @@ def download_album(Metadata, image_dir):
         host = host.rsplit(':')[0]
         base_api_url = f"https://{host}/{album_id}/sharedstreams"
         stream = post_json(f"{base_api_url}/webstream", stream_data)
-    logger.info("\tAcquiring photo checksums & guids...")
+
+    album_name = stream["streamName"]
+    logger.info("\tConnected to {album_name} album: acquiring photo checksums & guids...")
 
     # Get the checksums for the highest available resolution of each photo
     checksums = []

@@ -19,13 +19,12 @@ services:
     image: ghcr.io/mikefez/meuralcanvas-icloudsync:main
     container_name: meural-canvas-icloud-sync
     environment:
-      - ICLOUD_ALBUM_URL="XXXX"
       - MEURAL_USERNAME=XXXX
       - MEURAL_PASSWORD=XXXX
-      - MEURAL_PLAYLISTS=XXXX
       - UPDATE_FREQUENCY_MINS=30
     volumes:
-      - /foo/bar/MeuralCanvas-iCloudSync:/data
+      - path/to/config/dir:/config
+      - path/to/photo/download/dir:/images
     restart: unless-stopped
 ```
 
@@ -37,9 +36,7 @@ Container images are configured using parameters passed at runtime (such as thos
 
 | Parameter | Function |
 | :----: | --- |
-| `-e ICLOUD_ALBUM_URL` | URL to the iCloud album which contains the photos you want synced. |
 | `-e MEURAL_USERNAME` | Your Netgear Meural email address. |
 | `-e MEURAL_PASSWORD` | Your Netgear Meural email password. |
-| `-e MEURAL_PLAYLISTS` | The name(s) of the Meural playlist which photos should be added to. Multiple playlists can be added, separated by comma. |
 | `-e UPDATE_FREQUENCY_MINS` | The frequency between syncronization runs. |
 

@@ -1,32 +1,46 @@
 import icloud, meural
 import json
+import yaml
 import os
 from loguru import logger
 import time
 from glob import glob
 import sys
 
-if not os.getenv("IN_CONTAINER", False):
+IN_CONTAINER = os.getenv("IN_CONTAINER", False)
+UPDATE_FREQUENCY_MINS = os.getenv("UPDATE_FREQUENCY_MINS", None)
+IMAGE_DIR = os.path.join(os.getcwd(), "images") if not IN_CONTAINER else "/images"
+CONFIG_DIR = os.path.join(os.getcwd(), "config") if not IN_CONTAINER else "/config"
+
+if not IN_CONTAINER:
     from dotenv import load_dotenv
     load_dotenv()
 
+# Set up loguru
 try:
     logger.remove(0)
 except ValueError:
     pass
 logger.add(sys.stderr, level="INFO")
 
-def validate_env_vars():
-    env_vars = ["ICLOUD_ALBUM_URL", "MEURAL_USERNAME", "MEURAL_PASSWORD", "MEURAL_PLAYLISTS", "UPDATE_FREQUENCY_MINS"]
+def validate_environment():
+    # First check directories
+    directories = [IMAGE_DIR, CONFIG_DIR]
+    for directory in directories:
+        if not os.path.isdir(directory):
+            raise ValueError(f"{directory} directory was not found")
+
+    # Second check env vars
+    env_vars = ["MEURAL_USERNAME", "MEURAL_PASSWORD", "UPDATE_FREQUENCY_MINS"]
     for env_var in env_vars:
         if os.getenv(env_var, None) is None:
             raise ValueError(f"{env_var} Environment variable not set")
 
-IMAGE_DIR = os.path.join(os.getcwd(), "data") if not os.getenv("IN_CONTAINER", False) else "/data"
-UPDATE_FREQUENCY_MINS = os.getenv("UPDATE_FREQUENCY_MINS")
-
 class Metadata:
-    metadata_loc = f"{IMAGE_DIR}/records.json"
+    config_loc = f"{CONFIG_DIR}/config.yaml"
+    metadata_loc = f"{CONFIG_DIR}/records.json"
+
+    config = None
     db = {}
     item_template = {
         "filename": None,
@@ -36,6 +50,20 @@ class Metadata:
 
     @classmethod
     def initialize(cls):
+        # First grab the config
+        if os.path.isfile(cls.config_loc):
+            with open(cls.config_loc, 'r') as yaml_file:
+                config = yaml.safe_load(yaml_file)
+            if "sync" not in config:
+                raise ValueError(f'Config file is missing top-level "sync" key')
+            elif config["sync"] is None:
+                raise ValueError(f'There are no items to sync in the config. Ensure there is at least one item under "sync" prior to launching this container.')
+            else:
+                cls.config = config
+        else:
+            raise ValueError(f"Config file was not found. Please add one prior to launching this container.")
+
+        # Now populate metadata db
         if os.path.isfile(cls.metadata_loc):
             with open(cls.metadata_loc, 'r') as json_file:
                 records = json.load(json_file)
@@ -120,9 +148,6 @@ class Metadata:
                     not_added_to_playlist[playlist].append((checksum, file_data['filename'], file_data['meural_id']))
         return not_added_to_playlist
 
-Metadata.initialize()
-Metadata.verify_integrity_and_cleanup()
-
 def add_image_to_meural_playlists(meural_token, meural_playlist_name, meural_playlist_id, image_id, image_checksum, image_filename):
     try:
         logger.info(f"Adding image to {meural_playlist_name} Meural playlist")
@@ -155,50 +180,70 @@ def delete_images_from_meural_if_needed(meural_token, album_checksums):
             logger.error(f"[X] Failed to delete {image_filename} from Meural: {e}")
         return
 
-def scheduled_task(meural_token, meural_playlist_data):
-    # Download items from iCloud which have not already been downloaded
-    album_checksums = icloud.download_album(Metadata, image_dir=IMAGE_DIR)
-    if album_checksums:
-        delete_images_from_meural_if_needed(meural_token, album_checksums)
+def scheduled_task(meural_token, meural_playlist_ids_by_name):
+    for sync_item in Metadata.config["sync"]:
+        icloud_album_url = sync_item["icloud_album"]
+        meural_playlists_to_sync_to = sync_item["meural_playlists"]
 
-    # Now find items not yet uploaded to Meural
-    not_uploaded = Metadata.get_items_not_yet_uploaded()
-    len_items_not_uploaded = len(not_uploaded)
-    logger.info(f"Preparing to upload {len_items_not_uploaded} items to Meural")
-    for idx, (image_checksum, image_filename) in enumerate(not_uploaded, start=1):
-        logger.info(f"[{idx}/{len_items_not_uploaded}] Uploading {image_filename}")
-        try:
-            image_id = meural.upload_image(meural_token, IMAGE_DIR+"/not_uploaded", image_filename)
-            logger.info(f"[X] Successfully uploaded {image_filename}")
-            image_path = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
-            os.rename(image_path, image_path.replace("/not_uploaded/", "/uploaded/"))
-        except Exception as e:
-            logger.error(f"[X] Failed to upload image {image_filename}: {e}")
-            continue
-        Metadata.mark_uploaded_to_meural(image_checksum, image_id)
-        for playlist_name, playlist_id in meural_playlist_data.items():
-            add_image_to_meural_playlists(meural_token, playlist_name, playlist_id, image_id, image_checksum, image_filename)
+        # Validate playlist has items
+        if meural_playlists_to_sync_to is None or len(meural_playlists_to_sync_to) == 0:
+            raise ValueError(f"Cannot sync {icloud_album_url} because no Meural playlists were specified")
 
-    # Now find items which were previously uploaded, but not added to the Meural playlist
-    not_added_to_playlist = Metadata.get_items_not_added_to_playlist(meural_playlist_data.keys())
-    if not_added_to_playlist:
-        for playlist_name, items_not_added in not_added_to_playlist.items():
-            len_items_not_added_to_playlist = len(items_not_added)
-            playlist_id = meural_playlist_data[playlist_name]
-            logger.info(f"{len_items_not_added_to_playlist} items were previously uploaded, but not added to the {playlist_name} Meural playlist")
-            for idx, (image_checksum, image_filename, image_id) in enumerate(items_not_added, start=1):
-                logger.info(f"[{idx}/{len_items_not_added_to_playlist}] Adding {image_filename} to playlist")
+        # Grab name: id relationship of only those we want to sync this album to
+        this_album_playlist_ids_by_name = {}
+        for playlist_name in meural_playlists_to_sync_to:
+            if playlist_name not in meural_playlist_ids_by_name:
+                raise ValueError(f"Cannot sync {icloud_album_url} because {playlist_name} Meural playlist does not exist")
+            this_album_playlist_ids_by_name[playlist_name] = meural_playlist_ids_by_name[playlist_name]
+
+        # Download items from iCloud which have not already been downloaded
+        album_checksums = icloud.download_album(Metadata, icloud_album_url, IMAGE_DIR)
+        if album_checksums:
+            delete_images_from_meural_if_needed(meural_token, album_checksums)
+
+        # Now find items not yet uploaded to Meural
+        not_uploaded = Metadata.get_items_not_yet_uploaded()
+        len_items_not_uploaded = len(not_uploaded)
+        logger.info(f"Preparing to upload {len_items_not_uploaded} items to Meural")
+        for idx, (image_checksum, image_filename) in enumerate(not_uploaded, start=1):
+            logger.info(f"[{idx}/{len_items_not_uploaded}] Uploading {image_filename}")
+            try:
+                image_id = meural.upload_image(meural_token, IMAGE_DIR+"/not_uploaded", image_filename)
+                logger.info(f"[X] Successfully uploaded {image_filename}")
+                image_path = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
+                os.rename(image_path, image_path.replace("/not_uploaded/", "/uploaded/"))
+            except Exception as e:
+                logger.error(f"[X] Failed to upload image {image_filename}: {e}")
+                continue
+            Metadata.mark_uploaded_to_meural(image_checksum, image_id)
+            for playlist_name, playlist_id in this_album_playlist_ids_by_name:
                 add_image_to_meural_playlists(meural_token, playlist_name, playlist_id, image_id, image_checksum, image_filename)
+
+        # Now find items which were previously uploaded, but not added to the Meural playlist
+        not_added_to_playlist = Metadata.get_items_not_added_to_playlist(this_album_playlist_ids_by_name.keys())
+        if not_added_to_playlist:
+            for playlist_name, items_not_added in not_added_to_playlist.items():
+                len_items_not_added_to_playlist = len(items_not_added)
+                playlist_id = this_album_playlist_ids_by_name[playlist_name]
+                logger.info(f"{len_items_not_added_to_playlist} items were previously uploaded, but not added to the {playlist_name} Meural playlist")
+                for idx, (image_checksum, image_filename, image_id) in enumerate(items_not_added, start=1):
+                    logger.info(f"[{idx}/{len_items_not_added_to_playlist}] Adding {image_filename} to playlist")
+                    add_image_to_meural_playlists(meural_token, playlist_name, playlist_id, image_id, image_checksum, image_filename)
 
 
 #TODO: Prune items that are no longer in iCloud
 if __name__ == "__main__":
     logger.info(f"MeuralCanvas-iCloudSync Launched")
-    validate_env_vars()
-    meural_token = meural.get_authentication_token()
-    meural_playlist_data = meural.get_playlist_ids(meural_token)
-    while True:
-        logger.info("Starting scheduled update!")
-        scheduled_task(meural_token, meural_playlist_data)
-        logger.info(f"Done! Pausing for {UPDATE_FREQUENCY_MINS} minutes until next update...")
-        time.sleep(int(UPDATE_FREQUENCY_MINS)*60)
+    validate_environment()
+    Metadata.initialize()
+    Metadata.verify_integrity_and_cleanup()
+
+    print(Metadata.config)
+
+    # meural_token = meural.get_authentication_token()
+    # meural_playlist_ids_by_name = meural.get_playlist_ids(meural_token)
+    # while True:
+    #     logger.info("Starting scheduled update!")
+    #     scheduled_task(meural_token, meural_playlist_ids_by_name)
+    #     logger.info(f"Done! Pausing for {UPDATE_FREQUENCY_MINS} minutes until next update...")
+    #     time.sleep(int(UPDATE_FREQUENCY_MINS)*60)

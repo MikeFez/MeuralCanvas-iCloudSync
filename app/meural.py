@@ -7,7 +7,6 @@ if not os.getenv("IN_CONTAINER", False):
     load_dotenv()
 
 URL_BASE = "https://api.meural.com/v0"
-MEURAL_PLAYLISTS = [playlist.strip() for playlist in os.getenv("MEURAL_PLAYLIST").split(',')]
 MEURAL_USERNAME = os.getenv("MEURAL_USERNAME")
 MEURAL_PASSWORD = os.getenv("MEURAL_PASSWORD")
 
@@ -41,7 +40,7 @@ def get_playlist_ids(token):
         'x-meural-api-version': '3'
     }
     response = session.get(url, headers=headers, allow_redirects=True, timeout=15)
-    return {playlist['name']: playlist['id'] for playlist in response.json()['data'] if playlist['name'] in MEURAL_PLAYLISTS}
+    return {playlist['name']: playlist['id'] for playlist in response.json()['data']}
 
 def upload_image(token, image_dir, filename):
     url = f"{URL_BASE}/items"

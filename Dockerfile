@@ -8,10 +8,8 @@ ENV PUID=1000
 ENV PGID=1000
 ENV LOGURU_LEVEL=INFO
 ENV UPDATE_FREQUENCY_MINS=
-ENV ICLOUD_ALBUM_URL=
 ENV MEURAL_USERNAME=
 ENV MEURAL_PASSWORD=
-ENV MEURAL_PLAYLISTS=
 
 # RUN apt-get update && \
 #     apt-get -y install nano && \
@@ -26,4 +24,11 @@ ADD app /opt/app
 
 RUN cd /opt/app && pip3 install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["/bin/sh", "-c", "cd /opt/app && python3 main.py"]
+ENTRYPOINT ["/bin/sh", "-c", "cd /opt/app \
+    && if [ ! -d '/images' ]; then \
+        echo '/inbox volume was not mounted!'; \
+    elif [ ! -d '/config' ]; then \
+        echo '/config volume was not mounted!'; \
+    else \
+        python3 main.py; \
+    fi"]
