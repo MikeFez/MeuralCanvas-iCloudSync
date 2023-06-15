@@ -53,11 +53,11 @@ def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir)
                 raw_filename = url.split('?')[0].split('/')[-1]
                 original_filename = f"{icloud_album_id}_" + raw_filename
                 logger.info(f"\tDownloading {raw_filename}")
-                res = requests.get(url)
 
                 for playlist_data in meural_playlists_data:
                     playlist_name = playlist_data['name']
                     if not is_file_already_downloaded(Metadata, icloud_album_id, checksum, playlist_name):
+                        icloud_image_binary = requests.get(url)
                         filename_after_playlist = original_filename
                         if playlist_data['unique_upload']:
                             filename_after_playlist = original_filename.replace(f"{icloud_album_id}_", f"{icloud_album_id}_{playlist_name}_")
@@ -72,7 +72,7 @@ def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir)
 
                         logger.info(f"\tSaving As {save_as_filename} for {playlist_name} Meural playlist")
                         with open(root_save_path+save_as_filename, 'wb') as f:
-                            f.write(res.content)
+                            f.write(icloud_image_binary.content)
                         Metadata.add_item(icloud_album_id, checksum, playlist_name, save_as_filename)
                     num_items_downloaded += 1
                 break
