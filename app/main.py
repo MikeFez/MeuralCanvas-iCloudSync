@@ -45,7 +45,8 @@ class Metadata:
     item_template = {
         "filename": None,
         "meural_id": None,
-        "added_to_playlist": False
+        "added_to_playlist": False,
+        "deleted_from_meural": False
     }
 
     @classmethod
@@ -70,6 +71,12 @@ class Metadata:
         else:
             records = {}
         cls.db = records
+
+    @classmethod
+    def save_db(cls):
+        with open(cls.metadata_loc, 'w') as json_file:
+            json.dump(cls.db, json_file, indent=4)
+
 
     @classmethod
     def verify_integrity_and_cleanup(cls):
@@ -104,8 +111,6 @@ class Metadata:
                             else:
                                 logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/not_uploaded - moving to proper directory")
                                 os.rename(not_uploaded_path, uploaded_path)
-            cls.clean_db(icloud_album_id)
-
 
     @classmethod
     def add_item(cls, icloud_album_id, checksum, playlist_name, filename):
@@ -117,38 +122,22 @@ class Metadata:
             cls.db[icloud_album_id][checksum] = {}
         if playlist_name not in cls.db[icloud_album_id][checksum]:
             cls.db[icloud_album_id][checksum][playlist_name] = record
-        with open(cls.metadata_loc, 'w') as json_file:
-            json.dump(cls.db, json_file, indent=4)
+        cls.save_db()
 
     @classmethod
     def mark_uploaded_to_meural(cls, icloud_album_id, image_checksum, playlist_name, meural_id):
         cls.db[icloud_album_id][image_checksum][playlist_name]['meural_id'] = meural_id
-        with open(cls.metadata_loc, 'w') as json_file:
-            json.dump(cls.db, json_file, indent=4)
+        cls.save_db()
 
     @classmethod
     def mark_added_to_playlist(cls, icloud_album_id, image_checksum, playlist_name):
         cls.db[icloud_album_id][image_checksum][playlist_name]['added_to_playlist'] = True
-        with open(cls.metadata_loc, 'w') as json_file:
-            json.dump(cls.db, json_file, indent=4)
+        cls.save_db()
 
     @classmethod
-    def delete_item(cls, icloud_album_id, image_checksum, playlist_name):
-        del cls.db[icloud_album_id][image_checksum][playlist_name]
-        with open(cls.metadata_loc, 'w') as json_file:
-            json.dump(cls.db, json_file, indent=4)
-
-    @classmethod
-    def clean_db(cls, icloud_album_id):
-        checksums_to_delete = []
-        for image_checksum, playlist_data in cls.db[icloud_album_id].items():
-            if len(playlist_data) == 0:
-                checksums_to_delete.append(image_checksum)
-        for image_checksum in checksums_to_delete:
-            logger.info(f"Deleted {image_checksum} checksum from metadata db as it has been deleted from all playlists")
-            del cls.db[icloud_album_id][image_checksum]
-        with open(cls.metadata_loc, 'w') as json_file:
-            json.dump(cls.db, json_file, indent=4)
+    def mark_deleted_from_meural(cls, icloud_album_id, image_checksum, playlist_name):
+        cls.db[icloud_album_id][image_checksum][playlist_name]["deleted_from_meural"] = True
+        cls.save_db()
 
     @classmethod
     def get_items_not_yet_uploaded(cls, icloud_album_id):
@@ -197,7 +186,7 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
                     image_filename = playlist_data['filename']
                     try:
                         meural.delete_image(meural_token, playlist_data['meural_id'])
-                        Metadata.delete_item(icloud_album_id, checksum, playlist_name)
+                        Metadata.mark_deleted_from_meural(icloud_album_id, checksum, playlist_name)
 
                         potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
                         for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
@@ -210,7 +199,6 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
                         logger.error(f"[X] Failed to delete {image_filename} from Meural: {e}")
         else:
             logger.warning(f"Checksum {checksum} not found in metadata for album id {icloud_album_id}")
-    Metadata.clean_db(icloud_album_id)
     return
 
 def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
@@ -228,7 +216,7 @@ def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
                     items_to_delete_from_db.append((icloud_album_id, checksum, playlist_name, image_data['filename']))
 
     for (icloud_album_id, checksum, playlist_name, image_filename) in items_to_delete_from_db:
-        Metadata.delete_item(icloud_album_id, checksum, playlist_name)
+        Metadata.mark_deleted_from_meural(icloud_album_id, checksum, playlist_name)
         logger.info(f"\tDeleted {image_filename} from metadata because it no longer exists in Meural")
 
         potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
