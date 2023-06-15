@@ -214,6 +214,7 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
     return
 
 def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
+    logger.info(f"Checking if there are images to prune that no longer exist in Meural")
     existing_image_names = list(meural_image_ids_by_name.keys())
 
     items_to_delete_from_db = []
@@ -225,13 +226,13 @@ def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
 
     for (icloud_album_id, checksum, playlist_name, image_filename) in items_to_delete_from_db:
         # Metadata.delete_item(icloud_album_id, checksum, playlist_name)
-        logger.info(f"Deleted {image_filename} from metadata because it no longer exists in Meural")
+        logger.info(f"\tDeleted {image_filename} from metadata because it no longer exists in Meural")
 
         # potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
         # for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
         #     if os.path.isfile(potential_location):
         #         os.remove(potential_location)
-        #         logger.info(f"[✓] Successfully deleted {image_filename} from local storage")
+        #         logger.info(f"\t[✓] Successfully deleted {image_filename} from local storage")
         #         break
     return
 
@@ -297,8 +298,9 @@ if __name__ == "__main__":
 
     meural_token = meural.get_authentication_token()
     meural_playlist_ids_by_name = meural.get_playlist_ids(meural_token)
-    uploaded_images= meural.get_uploaded_images(meural_token)
-    for uploa
+    images_currently_in_meural = meural.get_uploaded_images(meural_token)
+    prune_images_that_no_longer_exist_in_meural(images_currently_in_meural)
+
     while True:
         logger.info("Starting scheduled update!")
         scheduled_task(meural_token, meural_playlist_ids_by_name)
