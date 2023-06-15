@@ -52,11 +52,10 @@ def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir)
             if checksum in url:
                 raw_filename = url.split('?')[0].split('/')[-1]
                 original_filename = f"{icloud_album_id}_" + raw_filename
-                logger.info(f"\tDownloading {raw_filename}")
-
                 for playlist_data in meural_playlists_data:
                     playlist_name = playlist_data['name']
                     if not is_file_already_downloaded(Metadata, icloud_album_id, checksum, playlist_name):
+                        logger.info(f"\tDownloading {raw_filename}")
                         icloud_image_binary = requests.get(url)
                         filename_after_playlist = original_filename
                         if playlist_data['unique_upload']:

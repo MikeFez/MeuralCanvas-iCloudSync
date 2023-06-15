@@ -139,7 +139,8 @@ class Metadata:
 
     @classmethod
     def clean_db(cls, icloud_album_id):
-        for image_checksum in cls.db[icloud_album_id]:
+        image_checksums = cls.db[icloud_album_id].keys()
+        for image_checksum in image_checksums:
             if len(cls.db[icloud_album_id][image_checksum].keys()) == 0:
                 del cls.db[icloud_album_id][image_checksum]
         with open(cls.metadata_loc, 'w') as json_file:
