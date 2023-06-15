@@ -176,14 +176,11 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
     since_been_deleted_checksums = []
     if icloud_album_id in Metadata.db:
         since_been_deleted_checksums = [checksum for checksum in Metadata.db[icloud_album_id].keys() if checksum not in album_checksums]
-    logger.warning(since_been_deleted_checksums)
     logger.info(f"Preparing to delete {len(since_been_deleted_checksums)} items from Meural")
     for checksum in since_been_deleted_checksums:
         if checksum in Metadata.db[icloud_album_id]:
-            logger.warning(f"{checksum} is in Metadata")
             for playlist_name, playlist_data in Metadata.db[icloud_album_id][checksum].items():
                 if not playlist_data["deleted_from_meural"]:
-                    logger.warning("preparing to delete")
                     image_filename = playlist_data['filename']
                     try:
                         meural.delete_image(meural_token, playlist_data['meural_id'])
@@ -213,7 +210,7 @@ def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
     for icloud_album_id, album_data in Metadata.db.items():
         for checksum, playlist_data in album_data.items():
             for playlist_name, image_data in playlist_data.items():
-                if image_data['filename'].rsplit(".")[0] not in existing_image_names:
+                if image_data['deleted_from_meural'] is False and image_data['filename'].rsplit(".")[0] not in existing_image_names:
                     items_to_delete_from_db.append((icloud_album_id, checksum, playlist_name, image_data['filename']))
 
     for (icloud_album_id, checksum, playlist_name, image_filename) in items_to_delete_from_db:
