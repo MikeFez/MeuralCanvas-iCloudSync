@@ -163,7 +163,9 @@ def add_image_to_meural_playlists(meural_token, meural_playlist_name, meural_pla
     return
 
 def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_checksums):
-    since_been_deleted_checksums = [checksum for checksum in Metadata.db.keys() if checksum not in album_checksums]
+    since_been_deleted_checksums = []
+    if icloud_album_id in Metadata.db:
+        since_been_deleted_checksums = [checksum for checksum in Metadata.db[icloud_album_id].keys() if checksum not in album_checksums]
     logger.info(f"Preparing to delete {len(since_been_deleted_checksums)} items from Meural")
     for checksum in since_been_deleted_checksums:
         if checksum in Metadata.db[icloud_album_id]:
