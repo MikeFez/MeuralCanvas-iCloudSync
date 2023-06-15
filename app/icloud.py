@@ -42,7 +42,7 @@ def download_album(Metadata, icloud_album_url, image_dir):
             if checksum in url:
                 original_filename = url.split('?')[0].split('/')[-1]
                 actual_filename = original_filename
-                if checksum not in Metadata.db:
+                if icloud_album_id not in Metadata.db or checksum not in Metadata.db[icloud_album_id]:
                     final_path = f"{image_dir}/not_uploaded/{actual_filename}"
                     appended_int = 1
                     while os.path.isfile(final_path):
