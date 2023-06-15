@@ -11,7 +11,16 @@ def post_json(url, data):
     response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
     return response.json()
 
-def download_album(Metadata, icloud_album_url, image_dir):
+
+def is_file_already_downloaded(Metadata, icloud_album_id, checksum, playlist_name):
+    if icloud_album_id in Metadata.db:
+        if checksum in Metadata.db[icloud_album_id]:
+            if playlist_name in Metadata.db[icloud_album_id][checksum]:
+                if Metadata.db[icloud_album_id][checksum][playlist_name]["filename"] is not None:
+                    return True
+    return False
+
+def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir):
     logger.info("Retrieving iCloud album information...")
     icloud_album_id = icloud_album_url.split('#')[1]
     base_api_url = f"https://p23-sharedstreams.icloud.com/{icloud_album_id}/sharedstreams"
@@ -36,25 +45,33 @@ def download_album(Metadata, icloud_album_url, image_dir):
     photo_guids = {"photoGuids": [photo["photoGuid"] for photo in stream["photos"]]}
     asset_urls = post_json(f"{base_api_url}/webasseturls", photo_guids)["items"]
     num_items_downloaded = 0
+    root_save_path = f"{image_dir}/not_uploaded/"
     for key, value in asset_urls.items():
         url = f"https://{value['url_location']}{value['url_path']}&{key}"
         for checksum in checksums:
             if checksum in url:
                 original_filename = f"{icloud_album_id}_" + url.split('?')[0].split('/')[-1]
-                actual_filename = original_filename
-                if icloud_album_id not in Metadata.db or checksum not in Metadata.db[icloud_album_id]:
-                    final_path = f"{image_dir}/not_uploaded/{actual_filename}"
-                    appended_int = 1
-                    while os.path.isfile(final_path):
-                        actual_filename = original_filename.replace(".", f" ({appended_int}).")
-                        final_path = f"{image_dir}/not_uploaded/{actual_filename}"
-                        appended_int += 1
+                logger.info(f"\tDownloading {original_filename}")
+                res = requests.get(url)
 
-                    logger.info(f"\tDownloading {actual_filename}")
-                    res = requests.get(url)
-                    with open(final_path, 'wb') as f:
-                        f.write(res.content)
-                    Metadata.add_item(icloud_album_id, checksum, actual_filename)
+                if not is_file_already_downloaded(Metadata, icloud_album_id, checksum, playlist_name):
+                    filename_after_playlist = original_filename
+                    for playlist_data in meural_playlists_data:
+                        playlist_name = playlist_data['name']
+                        if playlist_data['unique_upload']:
+                            filename_after_playlist = original_filename.replace(f"{icloud_album_id}_", f"{icloud_album_id}_{playlist_name}_")
+                        else:
+                            filename_after_playlist = original_filename
+
+                        save_as_filename = filename_after_playlist
+                        appended_int = 1
+                        while os.path.isfile(root_save_path+save_as_filename):
+                            save_as_filename = filename_after_playlist.replace(".", f" ({appended_int}).")
+                            appended_int += 1
+
+                        with open(root_save_path+save_as_filename, 'wb') as f:
+                            f.write(res.content)
+                        Metadata.add_item(icloud_album_id, checksum, playlist_name, save_as_filename)
                     num_items_downloaded += 1
                 break
     logger.info(f"Downloaded {num_items_downloaded} new items from iCloud")
