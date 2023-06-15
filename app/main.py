@@ -134,8 +134,14 @@ class Metadata:
     @classmethod
     def delete_item(cls, icloud_album_id, image_checksum, playlist_name):
         del cls.db[icloud_album_id][image_checksum][playlist_name]
-        if len(cls.db[icloud_album_id][image_checksum].keys()) == 0:
-            del cls.db[icloud_album_id][image_checksum]
+        with open(cls.metadata_loc, 'w') as json_file:
+            json.dump(cls.db, json_file, indent=4)
+
+    @classmethod
+    def clean_db(cls, icloud_album_id):
+        for image_checksum in cls.db[icloud_album_id]:
+            if len(cls.db[icloud_album_id][image_checksum].keys()) == 0:
+                del cls.db[icloud_album_id][image_checksum]
         with open(cls.metadata_loc, 'w') as json_file:
             json.dump(cls.db, json_file, indent=4)
 
@@ -196,6 +202,7 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
                     logger.error(f"[X] Failed to delete {image_filename} from Meural: {e}")
         else:
             logger.warning(f"Checksum {checksum} not found in metadata for album id {icloud_album_id}")
+    Metadata.clean_db(icloud_album_id)
     return
 
 def scheduled_task(meural_token, meural_playlist_ids_by_name):
