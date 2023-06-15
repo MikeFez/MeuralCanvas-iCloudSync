@@ -13,15 +13,15 @@ def post_json(url, data):
 
 def download_album(Metadata, icloud_album_url, image_dir):
     logger.info("Retrieving iCloud album information...")
-    album_id = icloud_album_url.split('#')[1]
-    base_api_url = f"https://p23-sharedstreams.icloud.com/{album_id}/sharedstreams"
+    icloud_album_id = icloud_album_url.split('#')[1]
+    base_api_url = f"https://p23-sharedstreams.icloud.com/{icloud_album_id}/sharedstreams"
 
     stream_data = {"streamCtag": None}
     stream = post_json(f"{base_api_url}/webstream", stream_data)
     host = stream.get("X-Apple-MMe-Host")
     if host:
         host = host.rsplit(':')[0]
-        base_api_url = f"https://{host}/{album_id}/sharedstreams"
+        base_api_url = f"https://{host}/{icloud_album_id}/sharedstreams"
         stream = post_json(f"{base_api_url}/webstream", stream_data)
 
     icloud_album_name = stream["streamName"]
@@ -58,4 +58,4 @@ def download_album(Metadata, icloud_album_url, image_dir):
                     num_items_downloaded += 1
                 break
     logger.info(f"Downloaded {num_items_downloaded} new items from iCloud")
-    return icloud_album_name, checksums
+    return icloud_album_id, checksums
