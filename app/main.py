@@ -216,6 +216,9 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
 def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
     logger.info(f"Checking if there are images to prune that no longer exist in Meural")
     existing_image_names = list(meural_image_ids_by_name.keys())
+    if len(existing_image_names) == 0:
+        logger.warning(f"No images found in Meural to check against - skipping this check as it might be an API error")
+        return
 
     items_to_delete_from_db = []
     for icloud_album_id, album_data in Metadata.db.items():
@@ -225,15 +228,15 @@ def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
                     items_to_delete_from_db.append((icloud_album_id, checksum, playlist_name, image_data['filename']))
 
     for (icloud_album_id, checksum, playlist_name, image_filename) in items_to_delete_from_db:
-        # Metadata.delete_item(icloud_album_id, checksum, playlist_name)
+        Metadata.delete_item(icloud_album_id, checksum, playlist_name)
         logger.info(f"\tDeleted {image_filename} from metadata because it no longer exists in Meural")
 
-        # potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
-        # for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
-        #     if os.path.isfile(potential_location):
-        #         os.remove(potential_location)
-        #         logger.info(f"\t[✓] Successfully deleted {image_filename} from local storage")
-        #         break
+        potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
+        for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
+            if os.path.isfile(potential_location):
+                os.remove(potential_location)
+                logger.info(f"\t[✓] Successfully deleted {image_filename} from local storage")
+                break
     return
 
 
