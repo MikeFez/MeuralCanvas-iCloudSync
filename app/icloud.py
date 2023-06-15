@@ -55,9 +55,9 @@ def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir)
                 res = requests.get(url)
 
                 for playlist_data in meural_playlists_data:
+                    playlist_name = playlist_data['name']
                     if not is_file_already_downloaded(Metadata, icloud_album_id, checksum, playlist_name):
                         filename_after_playlist = original_filename
-                        playlist_name = playlist_data['name']
                         if playlist_data['unique_upload']:
                             filename_after_playlist = original_filename.replace(f"{icloud_album_id}_", f"{icloud_album_id}_{playlist_name}_")
                         else:
