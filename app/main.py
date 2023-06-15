@@ -166,21 +166,24 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
     since_been_deleted_checksums = [checksum for checksum in Metadata.db.keys() if checksum not in album_checksums]
     logger.info(f"Preparing to delete {len(since_been_deleted_checksums)} items from Meural")
     for checksum in since_been_deleted_checksums:
-        image_filename = Metadata.db[checksum]['filename']
-        try:
-            meural.delete_image(meural_token, Metadata.db[checksum]['meural_id'])
-            Metadata.delete_item(icloud_album_id, checksum)
+        if checksum in Metadata.db[icloud_album_id]:
+            image_filename = Metadata.db[icloud_album_id][checksum]['filename']
+            try:
+                meural.delete_image(meural_token, Metadata.db[checksum]['meural_id'])
+                Metadata.delete_item(icloud_album_id, checksum)
 
-            potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
-            for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
-                if os.path.isfile(potential_location):
-                    os.remove(potential_location)
-                    logger.info(f"[✓] Successfully deleted {image_filename} from local storage")
-                    break
-            logger.info(f"[✓] Successfully deleted {image_filename} from Meural")
-        except Exception as e:
-            logger.error(f"[X] Failed to delete {image_filename} from Meural: {e}")
-        return
+                potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
+                for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
+                    if os.path.isfile(potential_location):
+                        os.remove(potential_location)
+                        logger.info(f"[✓] Successfully deleted {image_filename} from local storage")
+                        break
+                logger.info(f"[✓] Successfully deleted {image_filename} from Meural")
+            except Exception as e:
+                logger.error(f"[X] Failed to delete {image_filename} from Meural: {e}")
+        else:
+            logger.warning(f"Checksum {checksum} not found in metadata for album id {icloud_album_id}")
+    return
 
 def scheduled_task(meural_token, meural_playlist_ids_by_name):
     for sync_item in Metadata.config["sync"]:
