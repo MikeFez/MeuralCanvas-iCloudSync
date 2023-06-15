@@ -98,7 +98,6 @@ class Metadata:
                                 logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/not_uploaded")
                                 if not os.path.isfile(uploaded_path):
                                     logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/uploaded")
-                                    file_data["deleted_from_meural"] = True
                                     raise EnvironmentError("File is missing!")
                                 else:
                                     logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/uploaded - moving to proper directory")
@@ -109,7 +108,8 @@ class Metadata:
                                 logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/uploaded")
                                 if not os.path.isfile(not_uploaded_path):
                                     logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/not_uploaded")
-                                    raise EnvironmentError("File is missing!")
+                                    file_data["deleted_from_meural"] = True
+                                    # raise EnvironmentError("File is missing!")
                                 else:
                                     logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/not_uploaded - moving to proper directory")
                                     os.rename(not_uploaded_path, uploaded_path)
