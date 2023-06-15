@@ -145,6 +145,7 @@ class Metadata:
             if len(playlist_data) == 0:
                 checksums_to_delete.append(image_checksum)
         for image_checksum in checksums_to_delete:
+            logger.info(f"Deleted {image_checksum} checksum from metadata db as it has been deleted from all playlists")
             del cls.db[icloud_album_id][image_checksum]
         with open(cls.metadata_loc, 'w') as json_file:
             json.dump(cls.db, json_file, indent=4)
