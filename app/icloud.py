@@ -52,6 +52,7 @@ def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir)
             if checksum in url:
                 raw_filename = url.split('?')[0].split('/')[-1]
                 original_filename = f"{icloud_album_id}_" + raw_filename
+                file_was_downloaded = False
                 for playlist_data in meural_playlists_data:
                     playlist_name = playlist_data['name']
                     if not is_file_already_downloaded(Metadata, icloud_album_id, checksum, playlist_name):
@@ -73,6 +74,8 @@ def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir)
                         with open(root_save_path+save_as_filename, 'wb') as f:
                             f.write(icloud_image_binary.content)
                         Metadata.add_item(icloud_album_id, checksum, playlist_name, save_as_filename)
+                        file_was_downloaded = True
+                if file_was_downloaded:
                     num_items_downloaded += 1
                 break
     logger.info(f"Downloaded {num_items_downloaded} new items from iCloud")
