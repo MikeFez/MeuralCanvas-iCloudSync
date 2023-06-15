@@ -215,7 +215,7 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
 
 def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
     logger.info(f"Checking if there are images to prune that no longer exist in Meural")
-    existing_image_names = list(meural_image_ids_by_name.keys())
+    existing_image_names = [image.rsplit(".")[0] for image in meural_image_ids_by_name.keys()]
 
     items_to_delete_from_db = []
     for icloud_album_id, album_data in Metadata.db.items():
