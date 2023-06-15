@@ -34,7 +34,7 @@ def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir)
         stream = post_json(f"{base_api_url}/webstream", stream_data)
 
     icloud_album_name = stream["streamName"]
-    logger.info(f"\tConnected to {icloud_album_name} album: acquiring photo checksums & guids...")
+    logger.info(f"\tConnected to {icloud_album_name} iCloud album: acquiring photo checksums & guids...")
 
     # Get the checksums for the highest available resolution of each photo
     checksums = []
@@ -50,8 +50,9 @@ def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir)
         url = f"https://{value['url_location']}{value['url_path']}&{key}"
         for checksum in checksums:
             if checksum in url:
-                original_filename = f"{icloud_album_id}_" + url.split('?')[0].split('/')[-1]
-                logger.info(f"\tDownloading {original_filename}")
+                raw_filename = url.split('?')[0].split('/')[-1]
+                original_filename = f"{icloud_album_id}_" + raw_filename
+                logger.info(f"\tDownloading {raw_filename}")
                 res = requests.get(url)
 
                 for playlist_data in meural_playlists_data:
@@ -69,6 +70,7 @@ def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir)
                             save_as_filename = filename_after_playlist.replace(".", f" ({appended_int}).")
                             appended_int += 1
 
+                        logger.info(f"\tSaving As {save_as_filename} for {playlist_name} Meural playlist")
                         with open(root_save_path+save_as_filename, 'wb') as f:
                             f.write(res.content)
                         Metadata.add_item(icloud_album_id, checksum, playlist_name, save_as_filename)
