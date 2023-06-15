@@ -179,26 +179,22 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
     logger.info(f"Preparing to delete {len(since_been_deleted_checksums)} items from Meural")
     for checksum in since_been_deleted_checksums:
         if checksum in Metadata.db[icloud_album_id]:
-            # Playlists may be deleted at this point, so grab what they were and check if they still exist
-            playlist_names = list(Metadata.db[icloud_album_id][checksum].keys())
-            for playlist_name in playlist_names:
-                if playlist_name in Metadata.db[icloud_album_id][checksum]:
-                    playlist_data = Metadata.db[icloud_album_id][checksum][playlist_name]
-                    if not playlist_data["deleted_from_meural"]:
-                        image_filename = playlist_data['filename']
-                        try:
-                            meural.delete_image(meural_token, playlist_data['meural_id'])
-                            Metadata.mark_deleted_from_meural(icloud_album_id, checksum, playlist_name)
+            for playlist_name, playlist_data in Metadata.db[icloud_album_id][checksum].items():
+                if not playlist_data["deleted_from_meural"]:
+                    image_filename = playlist_data['filename']
+                    try:
+                        meural.delete_image(meural_token, playlist_data['meural_id'])
+                        Metadata.mark_deleted_from_meural(icloud_album_id, checksum, playlist_name)
 
-                            potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
-                            for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
-                                if os.path.isfile(potential_location):
-                                    os.remove(potential_location)
-                                    logger.info(f"[✓] Successfully deleted {image_filename} from local storage")
-                                    break
-                            logger.info(f"[✓] Successfully deleted {image_filename} from Meural")
-                        except Exception as e:
-                            logger.error(f"[X] Failed to delete {image_filename} from Meural: {e}")
+                        potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
+                        for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
+                            if os.path.isfile(potential_location):
+                                os.remove(potential_location)
+                                logger.info(f"[✓] Successfully deleted {image_filename} from local storage")
+                                break
+                        logger.info(f"[✓] Successfully deleted {image_filename} from Meural")
+                    except Exception as e:
+                        logger.error(f"[X] Failed to delete {image_filename} from Meural: {e}")
         else:
             logger.warning(f"Checksum {checksum} not found in metadata for album id {icloud_album_id}")
     return
