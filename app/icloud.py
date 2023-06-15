@@ -54,7 +54,7 @@ def download_album(Metadata, icloud_album_url, image_dir):
                     res = requests.get(url)
                     with open(final_path, 'wb') as f:
                         f.write(res.content)
-                    Metadata.add_item(icloud_album_name, checksum, actual_filename)
+                    Metadata.add_item(icloud_album_id, checksum, actual_filename)
                     num_items_downloaded += 1
                 break
     logger.info(f"Downloaded {num_items_downloaded} new items from iCloud")
