@@ -178,7 +178,8 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
     logger.info(f"Preparing to delete {len(since_been_deleted_checksums)} items from Meural")
     for checksum in since_been_deleted_checksums:
         if checksum in Metadata.db[icloud_album_id]:
-            for playlist_name, playlist_data in Metadata.db[icloud_album_id][checksum].items():
+            for playlist_name in Metadata.db[icloud_album_id][checksum]:
+                playlist_data = Metadata.db[icloud_album_id][checksum][playlist_name]
                 image_filename = playlist_data['filename']
                 try:
                     meural.delete_image(meural_token, playlist_data['meural_id'])
