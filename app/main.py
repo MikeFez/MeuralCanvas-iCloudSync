@@ -218,8 +218,8 @@ def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
                     items_to_delete_from_db.append((icloud_album_id, checksum, playlist_name, image_data['filename']))
 
     for (icloud_album_id, checksum, playlist_name, image_filename) in items_to_delete_from_db:
+        logger.info(f"\tDeleting {image_filename} from metadata because it no longer exists in Meural")
         Metadata.mark_deleted_from_meural(icloud_album_id, checksum, playlist_name)
-        logger.info(f"\tDeleted {image_filename} from metadata because it no longer exists in Meural")
 
         potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
         for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
