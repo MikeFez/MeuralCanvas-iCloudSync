@@ -91,26 +91,28 @@ class Metadata:
                 for playlist_name, file_data in playlist_data.items():
                     not_uploaded_path = f"{IMAGE_DIR}/not_uploaded/{file_data['filename']}"
                     uploaded_path = not_uploaded_path.replace("/not_uploaded/", "/uploaded/")
-                    if file_data['meural_id'] is None:
-                        # File was not uploaded
-                        if not os.path.isfile(not_uploaded_path):
-                            logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/not_uploaded")
-                            if not os.path.isfile(uploaded_path):
-                                logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/uploaded")
-                                raise EnvironmentError("File is missing!")
-                            else:
-                                logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/uploaded - moving to proper directory")
-                                os.rename(uploaded_path, not_uploaded_path)
-                    else:
-                        # File was uploaded
-                        if not os.path.isfile(uploaded_path):
-                            logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/uploaded")
+                    if not file_data["deleted_from_meural"]:
+                        if file_data['meural_id'] is None:
+                            # File was not uploaded
                             if not os.path.isfile(not_uploaded_path):
-                                logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/not_uploaded")
-                                raise EnvironmentError("File is missing!")
-                            else:
-                                logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/not_uploaded - moving to proper directory")
-                                os.rename(not_uploaded_path, uploaded_path)
+                                logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/not_uploaded")
+                                if not os.path.isfile(uploaded_path):
+                                    logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/uploaded")
+                                    file_data["deleted_from_meural"] = True
+                                    raise EnvironmentError("File is missing!")
+                                else:
+                                    logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/uploaded - moving to proper directory")
+                                    os.rename(uploaded_path, not_uploaded_path)
+                        else:
+                            # File was uploaded
+                            if not os.path.isfile(uploaded_path):
+                                logger.warning(f"File {file_data['filename']} not found in {IMAGE_DIR}/uploaded")
+                                if not os.path.isfile(not_uploaded_path):
+                                    logger.error(f"File {file_data['filename']} also was not found in {IMAGE_DIR}/not_uploaded")
+                                    raise EnvironmentError("File is missing!")
+                                else:
+                                    logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/not_uploaded - moving to proper directory")
+                                    os.rename(not_uploaded_path, uploaded_path)
 
     @classmethod
     def add_item(cls, icloud_album_id, checksum, playlist_name, filename):
