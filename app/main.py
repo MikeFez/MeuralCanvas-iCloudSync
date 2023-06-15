@@ -139,10 +139,12 @@ class Metadata:
 
     @classmethod
     def clean_db(cls, icloud_album_id):
-        image_checksums = cls.db[icloud_album_id].keys()
-        for image_checksum in image_checksums:
-            if len(cls.db[icloud_album_id][image_checksum].keys()) == 0:
-                del cls.db[icloud_album_id][image_checksum]
+        checksums_to_delete = []
+        for image_checksum, playlist_data in cls.db[icloud_album_id].items():
+            if len(playlist_data) == 0:
+                checksums_to_delete.append(image_checksum)
+        for image_checksum in checksums_to_delete:
+            del cls.db[icloud_album_id][image_checksum]
         with open(cls.metadata_loc, 'w') as json_file:
             json.dump(cls.db, json_file, indent=4)
 
