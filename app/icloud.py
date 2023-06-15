@@ -24,7 +24,7 @@ def download_album(Metadata, icloud_album_url, image_dir):
         base_api_url = f"https://{host}/{album_id}/sharedstreams"
         stream = post_json(f"{base_api_url}/webstream", stream_data)
 
-    album_name = stream["streamName"]
+    icloud_album_name = stream["streamName"]
     logger.info(f"\tConnected to {album_name} album: acquiring photo checksums & guids...")
 
     # Get the checksums for the highest available resolution of each photo
@@ -54,8 +54,8 @@ def download_album(Metadata, icloud_album_url, image_dir):
                     res = requests.get(url)
                     with open(final_path, 'wb') as f:
                         f.write(res.content)
-                    Metadata.add_item(icloud_album_url, checksum, actual_filename)
+                    Metadata.add_item(icloud_album_name, checksum, actual_filename)
                     num_items_downloaded += 1
                 break
     logger.info(f"Downloaded {num_items_downloaded} new items from iCloud")
-    return checksums
+    return icloud_album_name, checksums
