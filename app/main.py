@@ -104,7 +104,7 @@ class Metadata:
                             else:
                                 logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/not_uploaded - moving to proper directory")
                                 os.rename(not_uploaded_path, uploaded_path)
-            cls.clean_db(cls, icloud_album_id)
+            cls.clean_db(icloud_album_id)
 
 
     @classmethod
