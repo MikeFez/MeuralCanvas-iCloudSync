@@ -25,7 +25,7 @@ def get_authentication_token():
     return response.json()['token']
 
 def get_uploaded_images(token):
-    url = f"{URL_BASE}/user/items?count=300&page=1"
+    url = f"{URL_BASE}/user/items?count=500&page=1"
     headers = {
         'Authorization': f"Token {token}",
         'x-meural-api-version': '3'

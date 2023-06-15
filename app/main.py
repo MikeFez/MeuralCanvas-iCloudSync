@@ -104,6 +104,7 @@ class Metadata:
                             else:
                                 logger.info(f"File {file_data['filename']} found in {IMAGE_DIR}/not_uploaded - moving to proper directory")
                                 os.rename(not_uploaded_path, uploaded_path)
+            cls.clean_db(cls, icloud_album_id)
 
 
     @classmethod
@@ -211,6 +212,29 @@ def delete_images_from_meural_if_needed(meural_token, icloud_album_id, album_che
     Metadata.clean_db(icloud_album_id)
     return
 
+def prune_images_that_no_longer_exist_in_meural(meural_image_ids_by_name):
+    existing_image_names = list(meural_image_ids_by_name.keys())
+
+    items_to_delete_from_db = []
+    for icloud_album_id, album_data in Metadata.db.items():
+        for checksum, playlist_data in album_data.items():
+            for playlist_name, image_data in playlist_data.items():
+                if image_data['filename'] not in existing_image_names:
+                    items_to_delete_from_db.append((icloud_album_id, checksum, playlist_name, image_data['filename']))
+
+    for (icloud_album_id, checksum, playlist_name, image_filename) in items_to_delete_from_db:
+        # Metadata.delete_item(icloud_album_id, checksum, playlist_name)
+        logger.info(f"Deleted {image_filename} from metadata because it no longer exists in Meural")
+
+        # potential_image_location = f"{IMAGE_DIR}/not_uploaded/{image_filename}"
+        # for potential_location in (potential_image_location, potential_image_location.replace('/not_uploaded/', '/uploaded/')):
+        #     if os.path.isfile(potential_location):
+        #         os.remove(potential_location)
+        #         logger.info(f"[✓] Successfully deleted {image_filename} from local storage")
+        #         break
+    return
+
+
 def scheduled_task(meural_token, meural_playlist_ids_by_name):
     for sync_item in Metadata.config["sync"]:
         icloud_album_url = sync_item["icloud_album"]
@@ -272,6 +296,8 @@ if __name__ == "__main__":
 
     meural_token = meural.get_authentication_token()
     meural_playlist_ids_by_name = meural.get_playlist_ids(meural_token)
+    uploaded_images= meural.get_uploaded_images(meural_token)
+    for uploa
     while True:
         logger.info("Starting scheduled update!")
         scheduled_task(meural_token, meural_playlist_ids_by_name)
