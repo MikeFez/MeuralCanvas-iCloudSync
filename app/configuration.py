@@ -1,6 +1,8 @@
 import os
 import sys
+import time
 from loguru import logger
+
 
 IN_CONTAINER = os.getenv("IN_CONTAINER", False)
 if not IN_CONTAINER:
@@ -9,14 +11,18 @@ if not IN_CONTAINER:
 
 class Env:
     IN_CONTAINER = IN_CONTAINER
-    LOG_LEVEL = os.getenv("MEURAL_USERNAME", "LOG_LEVEL")
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    VERIFY_SSL_CERTS = False if os.getenv("VERIFY_SSL_CERTS", "false").lower() == "false" else True
 
     IMAGE_DIR = os.path.join(os.getcwd(), "images") if not IN_CONTAINER else "/images"
     CONFIG_DIR = os.path.join(os.getcwd(), "config") if not IN_CONTAINER else "/config"
 
+    DRY_RUN = False if os.getenv("DRY_RUN", "false").lower() == "false" else True
     MEURAL_USERNAME = os.getenv("MEURAL_USERNAME", None)
     MEURAL_PASSWORD = os.getenv("MEURAL_PASSWORD", None)
     UPDATE_FREQUENCY_MINS = os.getenv("UPDATE_FREQUENCY_MINS", None)
+
+    DELETE_FROM_ICLOUD_PLAYLIST_NAME = "Delete From iCloud"
 
     @classmethod
     def validate_environment(cls):
@@ -39,4 +45,16 @@ try:
     logger.remove(0)
 except ValueError:
     pass
-logger.add(sys.stderr, level=Env.LOG_LEVEL, colorize=True)
+
+loguru_format = str(
+    "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+    "<level>{level: <8}</level> | <level>{message}</level>",
+)
+
+logger.add(sys.stderr, level=Env.LOG_LEVEL, format=loguru_format, colorize=True)
+
+def halt_with_error(error_msg):
+    logger.error(error_msg)
+    logger.info("MeuralCanvas-iCloudSync has been halted. Restart the container to resume.")
+    while True:
+        time.sleep(60)

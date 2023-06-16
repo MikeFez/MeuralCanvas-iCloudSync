@@ -3,36 +3,44 @@ import json
 import os
 import requests
 
+if Env.VERIFY_SSL_CERTS is False:
+    requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+
 def post_json(url, data):
-    response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
+    response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'}, verify=Env.VERIFY_SSL_CERTS)
     return response.json()
 
 class iCloudAlbum:
     class Image:
-        def __init__(self, sync_task, checksum, name, url):
+        def __init__(self, sync_task, meural_api, checksum, icloud_filename, url):
             self.checksum = checksum
-            self.name = name
+            self.icloud_filename = icloud_filename
             self.url = url
             self.image_binary = None  # Stores image binary after download
             self.paths_to_images_actually_downloaded = [] # Populated via self.download()
 
             # Populated via self.populate_filenames(), formatted as {meural_playlist_name: filename}
-            self.save_as_filenames = self.populate_filenames(sync_task)
+            self.save_as_filenames = self.populate_filenames(sync_task, meural_api)
 
-        def populate_filenames(self, sync_task):
+        def populate_filenames(self, sync_task, meural_api):
+            filenames = {}
+            original_extension = self.icloud_filename.rsplit('.', 1)[-1]
             for sync_to_playlist in sync_task.meural_playlists:
                 # Images will be uploaded with their names in the following format:
                 # "{icloud_album_id}_{checksum}_{meural_playlist_name}" if unique
                 # "{icloud_album_id}_{checksum}" if not
                 filename = self.checksum
                 if sync_to_playlist.unique_upload is True:
-                    filename = f"{self.checksum}_{sync_to_playlist.name}"
-                self.save_as_filenames[sync_to_playlist.name] = f"{Env.IMAGE_DIR}/{filename}"
+                    playlist_id = meural_api.playlist_ids_by_name[sync_to_playlist.name]
+                    filename = f"{self.checksum}_{playlist_id}.{original_extension}"
+                filenames[sync_to_playlist.name] = filename
+            return filenames
 
-        def download(self, absolute_path):
-            logger.info(f"Downloading {self.name}")
+        def download(self, filename):
+            absolute_path = f"{Env.IMAGE_DIR}/{filename}"
+            logger.info(f"Downloading {self.filename}")
             if self.image_binary is None:
-                self.image_binary = requests.get(self.url).content
+                self.image_binary = requests.get(self.url, verify=Env.VERIFY_SSL_CERTS).content
             if not os.path.exists(absolute_path):
                 with open(absolute_path, 'wb') as f:
                     f.write(self.image_binary)
@@ -41,7 +49,8 @@ class iCloudAlbum:
 
         def delete_downloaded_images(self):
             self.image_binary = None
-            for absolute_path in self.paths_to_images_actually_downloaded:
+            for filename in self.paths_to_images_actually_downloaded:
+                absolute_path = f"{Env.IMAGE_DIR}/{filename}"
                 if os.path.exists(absolute_path):
                     os.remove(absolute_path)
                     logger.info(f"[✓] Deleted {absolute_path}")
@@ -49,18 +58,20 @@ class iCloudAlbum:
                     logger.info(f"[!] {absolute_path} does not exist, could not delete image. It may have not been downloaded")
             self.paths_to_images_actually_downloaded = []
 
-    def __init__(self, sync_task):
+    def __init__(self, sync_task, meural_api):
+        logger.info("Initializing iCloud Album API")
         self.url = sync_task.icloud_album
         self.id = self.url.split('#')[1]
 
         # Populated by query_album()
         self.name = ""
         self.images = []
-        self.query_album(sync_task)
-        logger.info(f"Identified {len(self.images)} images in the {self.name} iCloud album")
+        self.checksums_in_this_album = []
+        self.query_album(sync_task, meural_api)
+        logger.info(f"[✓] Identified {len(self.images)} images in the {self.name} iCloud album")
 
-    def query_album(self, sync_task):
-        logger.info(f"Retrieving iCloud album information ({self.url})...")
+    def query_album(self, sync_task, meural_api):
+        logger.info(f"Retrieving iCloud album information ({self.url})")
         base_api_url = f"https://p23-sharedstreams.icloud.com/{self.id}/sharedstreams"
         stream_data = {"streamCtag": None}
         stream = post_json(f"{base_api_url}/webstream", stream_data)
@@ -71,7 +82,7 @@ class iCloudAlbum:
             stream = post_json(f"{base_api_url}/webstream", stream_data)
 
         self.name = stream["streamName"]
-        logger.info(f"\tConnected to {self.name} iCloud album: acquiring photo checksums & guids...")
+        logger.info(f"\tConnected to {self.name} iCloud album: acquiring photo checksums...")
 
         # Get the checksums for the highest available resolution of each photo
         checksums = []
@@ -88,9 +99,11 @@ class iCloudAlbum:
                     self.images.append(
                         self.__class__.Image(
                             sync_task=sync_task,
+                            meural_api=meural_api,
                             checksum=checksum,
-                            name=url.split('?')[0].split('/')[-1],
+                            icloud_filename=url.split('?')[0].split('/')[-1],
                             url=url
                         )
                     )
-
+                    self.checksums_in_this_album.append(checksum)
+                    break

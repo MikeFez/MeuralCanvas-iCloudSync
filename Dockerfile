@@ -3,6 +3,8 @@ FROM python:3.10
 LABEL maintainer="Michael Fessenden <michael@mikefez.com>"
 
 ENV IN_CONTAINER=true
+ENV DRY_RUN=false
+ENV VERIFY_SSL_CERTS=true
 ENV USERNAME=Meural
 ENV PUID=1000
 ENV PGID=1000
