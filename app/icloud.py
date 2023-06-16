@@ -29,7 +29,7 @@ class iCloudAlbum:
                 # Images will be uploaded with their names in the following format:
                 # "{icloud_album_id}_{checksum}_{meural_playlist_name}" if unique
                 # "{icloud_album_id}_{checksum}" if not
-                filename = self.checksum
+                filename = f"{self.checksum}.{original_extension}"
                 if sync_to_playlist.unique_upload is True:
                     playlist_id = meural_api.playlist_ids_by_name[sync_to_playlist.name]
                     filename = f"{self.checksum}_{playlist_id}.{original_extension}"

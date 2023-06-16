@@ -152,7 +152,8 @@ def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, m
         for orphaned_icloud_image in orphaned_icloud_images:
             if not Env.DRY_RUN:
                 logger.info(f"\t'{Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}' playlist not found in Meural - creating it")
-                save_filename = f"{orphaned_icloud_image.checksum}_{orphaned_album_id}"
+                original_extension = orphaned_icloud_image.icloud_filename.rsplit('.', 1)[-1]
+                save_filename = f"{orphaned_icloud_image.checksum}_{orphaned_album_id}.{original_extension}"
                 icloud_image.download(save_filename)
 
                 # Upload the image & get the meural id
