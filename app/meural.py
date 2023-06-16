@@ -25,6 +25,7 @@ class MeuralAPI:
         # Populated by self.refresh_uploaded_image_data()
         self.uploaded_images_by_icloud_album_id = {}
         self.uploaded_filenames_by_icloud_album_id = {}
+        self.all_uploaded_images = []
         self.refresh_uploaded_image_data()
 
 
@@ -58,6 +59,7 @@ class MeuralAPI:
                 album_id = json.loads(uploaded_image_data['description'])["icloud_album_id"]
 
             # Store in dict
+            self.all_uploaded_images.append(uploaded_image_data)
             if album_id not in self.uploaded_images_by_icloud_album_id:
                 self.uploaded_images_by_icloud_album_id[album_id] = []
             self.uploaded_images_by_icloud_album_id[album_id].append(uploaded_image_data)

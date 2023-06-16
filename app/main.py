@@ -113,8 +113,15 @@ def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, m
     orphaned_icloud_images = []
     for icloud_image in icloud_album_obj.images:
         this_checksum_is_in_meural = False
-        for meural_image_data in meural_api.uploaded_images_by_icloud_album_id[icloud_album_obj.id]:
-            json_data = json.loads(meural_image_data['description'])
+        for meural_image_data in meural_api.all_uploaded_images:
+            json_data = None
+            try:
+                # Not all images may have been from this tool, so try to unpack json but ignore the error if not
+                json_data = json.loads(meural_image_data['description'])
+            except:
+                pass
+            if json_data is None:
+                continue
             if icloud_image.checksum == json_data["checksum"]:
                 this_checksum_is_in_meural = True
                 break
