@@ -35,6 +35,10 @@ services:
       - MEURAL_USERNAME=XXXX
       - MEURAL_PASSWORD=XXXX
       - UPDATE_FREQUENCY_MINS=30
+      # Optional env vars
+      - DRY_RUN=true
+      - VERIFY_SSL_CERTS=true
+      - LOG_LEVEL=INFO
     volumes:
       - path/to/config/dir:/config
     restart: unless-stopped
@@ -44,6 +48,7 @@ services:
 
 Container images are configured using parameters passed at runtime (such as those above). These parameters are separated by a colon and indicate `<external>:<internal>` respectively. For example, `-p 8080:80` would expose port `80` from inside the container to be accessible from the host's IP on port `8080` outside the container.
 
+### Required
 **Note: There are no defaults for the parameters mentioned here - each one MUST be provided**
 
 | Parameter | Function |
@@ -51,6 +56,15 @@ Container images are configured using parameters passed at runtime (such as thos
 | `-e MEURAL_USERNAME` | Your Netgear Meural email address. |
 | `-e MEURAL_PASSWORD` | Your Netgear Meural email password. |
 | `-e UPDATE_FREQUENCY_MINS` | The frequency between syncronization runs. |
+
+### Optional
+These parameters do not have to be provided, as they have defaults
+
+| Parameter | Default | Function |
+| :----: | --- |
+| `-e DRY_RUN` | `false` | Your Netgear Meural email address. |
+| `-e VERIFY_SSL_CERTS` | `true` | Your Netgear Meural email password. |
+| `-e LOG_LEVEL` | `INFO` | The frequency between syncronization runs. |
 
 ## Configuration
 Configuration is managed via `config.yaml`, which should be mounted into the `/config` directory. This file must exist prior to launching the container, and will be validated before syncing occurs. An example of the file can be seen here:
