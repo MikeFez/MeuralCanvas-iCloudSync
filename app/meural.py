@@ -83,7 +83,7 @@ class MeuralAPI:
     def delete_image(self, image_id):
         url = f"{URL_BASE}/items/{image_id}"
         response = self.session.delete(url, headers=self.headers, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
-        return response.json()
+        return
 
     def create_playlist(self, playlist_name, description, orientation):
         url = f"{URL_BASE}/galleries"
