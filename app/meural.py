@@ -85,15 +85,15 @@ class MeuralAPI:
         response = self.session.delete(url, headers=self.headers, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
         return
 
-    def create_playlist(self, playlist_name, description, orientation):
+    def create_playlist(self, name, description, orientation):
         url = f"{URL_BASE}/galleries"
         metadata = {
-            "name": playlist_name,
+            "name": name,
             "description": description,
             "orientation": orientation
         }
         response = self.session.post(url, headers=self.headers, data=metadata, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
-        return response.json()['data']['itemIds']
+        return response.json()['data']
 
     def add_image_to_playlist(self, image_id, playlist_id):
         url = f"{URL_BASE}/galleries/{playlist_id}/items/{image_id}"
