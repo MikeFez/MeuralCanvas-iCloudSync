@@ -37,7 +37,6 @@ services:
       - UPDATE_FREQUENCY_MINS=30
     volumes:
       - path/to/config/dir:/config
-      - path/to/photo/download/dir:/images
     restart: unless-stopped
 ```
 

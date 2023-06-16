@@ -1,82 +1,96 @@
-from loguru import logger
+from configuration import Env, logger
 import json
 import os
 import requests
-
-if not os.getenv("IN_CONTAINER", False):
-    from dotenv import load_dotenv
-    load_dotenv()
 
 def post_json(url, data):
     response = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
     return response.json()
 
+class iCloudAlbum:
+    class Image:
+        def __init__(self, sync_task, checksum, name, url):
+            self.checksum = checksum
+            self.name = name
+            self.url = url
+            self.image_binary = None  # Stores image binary after download
+            self.paths_to_images_actually_downloaded = [] # Populated via self.download()
 
-def is_file_already_downloaded(Metadata, icloud_album_id, checksum, playlist_name):
-    if icloud_album_id in Metadata.db:
-        if checksum in Metadata.db[icloud_album_id]:
-            if playlist_name in Metadata.db[icloud_album_id][checksum]:
-                if Metadata.db[icloud_album_id][checksum][playlist_name]["filename"] is not None:
-                    return True
-    return False
+            # Populated via self.populate_filenames(), formatted as {meural_playlist_name: filename}
+            self.save_as_filenames = self.populate_filenames(sync_task)
 
-def download_album(Metadata, icloud_album_url, meural_playlists_data, image_dir):
-    logger.info("Retrieving iCloud album information...")
-    icloud_album_id = icloud_album_url.split('#')[1]
-    base_api_url = f"https://p23-sharedstreams.icloud.com/{icloud_album_id}/sharedstreams"
+        def populate_filenames(self, sync_task):
+            for sync_to_playlist in sync_task.meural_playlists:
+                # Images will be uploaded with their names in the following format:
+                # "{icloud_album_id}_{checksum}_{meural_playlist_name}" if unique
+                # "{icloud_album_id}_{checksum}" if not
+                filename = self.checksum
+                if sync_to_playlist.unique_upload is True:
+                    filename = f"{self.checksum}_{sync_to_playlist.name}"
+                self.save_as_filenames[sync_to_playlist.name] = f"{Env.IMAGE_DIR}/{filename}"
 
-    stream_data = {"streamCtag": None}
-    stream = post_json(f"{base_api_url}/webstream", stream_data)
-    host = stream.get("X-Apple-MMe-Host")
-    if host:
-        host = host.rsplit(':')[0]
-        base_api_url = f"https://{host}/{icloud_album_id}/sharedstreams"
+        def download(self, absolute_path):
+            logger.info(f"Downloading {self.name}")
+            if self.image_binary is None:
+                self.image_binary = requests.get(self.url).content
+            if not os.path.exists(absolute_path):
+                with open(absolute_path, 'wb') as f:
+                    f.write(self.image_binary)
+                    logger.info(f"\t[✓] Saved to {absolute_path}")
+            self.paths_to_images_actually_downloaded.append(absolute_path)
+
+        def delete_downloaded_images(self):
+            self.image_binary = None
+            for absolute_path in self.paths_to_images_actually_downloaded:
+                if os.path.exists(absolute_path):
+                    os.remove(absolute_path)
+                    logger.info(f"[✓] Deleted {absolute_path}")
+                else:
+                    logger.info(f"[!] {absolute_path} does not exist, could not delete image. It may have not been downloaded")
+            self.paths_to_images_actually_downloaded = []
+
+    def __init__(self, sync_task):
+        self.url = sync_task.icloud_album
+        self.id = self.url.split('#')[1]
+
+        # Populated by query_album()
+        self.name = ""
+        self.images = []
+        self.query_album(sync_task)
+        logger.info(f"Identified {len(self.images)} images in the {self.name} iCloud album")
+
+    def query_album(self, sync_task):
+        logger.info(f"Retrieving iCloud album information ({self.url})...")
+        base_api_url = f"https://p23-sharedstreams.icloud.com/{self.id}/sharedstreams"
+        stream_data = {"streamCtag": None}
         stream = post_json(f"{base_api_url}/webstream", stream_data)
+        host = stream.get("X-Apple-MMe-Host")
+        if host:
+            host = host.rsplit(':')[0]
+            base_api_url = f"https://{host}/{self.id}/sharedstreams"
+            stream = post_json(f"{base_api_url}/webstream", stream_data)
 
-    icloud_album_name = stream["streamName"]
-    logger.info(f"\tConnected to {icloud_album_name} iCloud album: acquiring photo checksums & guids...")
+        self.name = stream["streamName"]
+        logger.info(f"\tConnected to {self.name} iCloud album: acquiring photo checksums & guids...")
 
-    # Get the checksums for the highest available resolution of each photo
-    checksums = []
-    for photo in stream["photos"]:
-        checksums.append(photo['derivatives'][str(max(int(x) for x in photo["derivatives"].keys()))]['checksum'])
+        # Get the checksums for the highest available resolution of each photo
+        checksums = []
+        for photo in stream["photos"]:
+            checksums.append(photo['derivatives'][str(max(int(x) for x in photo["derivatives"].keys()))]['checksum'])
 
-    # Get all photo guids and request all asset urls
-    photo_guids = {"photoGuids": [photo["photoGuid"] for photo in stream["photos"]]}
-    asset_urls = post_json(f"{base_api_url}/webasseturls", photo_guids)["items"]
-    num_items_downloaded = 0
-    root_save_path = f"{image_dir}/not_uploaded/"
-    for key, value in asset_urls.items():
-        url = f"https://{value['url_location']}{value['url_path']}&{key}"
-        for checksum in checksums:
-            if checksum in url:
-                raw_filename = url.split('?')[0].split('/')[-1]
-                original_filename = f"{icloud_album_id}_" + raw_filename
-                file_was_downloaded = False
-                for playlist_data in meural_playlists_data:
-                    playlist_name = playlist_data['name']
-                    if not is_file_already_downloaded(Metadata, icloud_album_id, checksum, playlist_name):
-                        logger.info(f"\tDownloading {raw_filename}")
-                        icloud_image_binary = requests.get(url)
-                        filename_after_playlist = original_filename
-                        if playlist_data['unique_upload']:
-                            filename_after_playlist = original_filename.replace(f"{icloud_album_id}_", f"{icloud_album_id}_{playlist_name}_")
-                        else:
-                            filename_after_playlist = original_filename
+        # Get all photo guids and request all asset urls
+        photo_guids = {"photoGuids": [photo["photoGuid"] for photo in stream["photos"]]}
+        asset_urls = post_json(f"{base_api_url}/webasseturls", photo_guids)["items"]
+        for key, value in asset_urls.items():
+            url = f"https://{value['url_location']}{value['url_path']}&{key}"
+            for checksum in checksums:
+                if checksum in url:
+                    self.images.append(
+                        self.__class__.Image(
+                            sync_task=sync_task,
+                            checksum=checksum,
+                            name=url.split('?')[0].split('/')[-1],
+                            url=url
+                        )
+                    )
 
-                        save_as_filename = filename_after_playlist
-                        appended_int = 1
-                        while os.path.isfile(root_save_path+save_as_filename):
-                            save_as_filename = filename_after_playlist.replace(".", f" ({appended_int}).")
-                            appended_int += 1
-
-                        logger.info(f"\tSaving As {save_as_filename} for {playlist_name} Meural playlist")
-                        with open(root_save_path+save_as_filename, 'wb') as f:
-                            f.write(icloud_image_binary.content)
-                        Metadata.add_item(icloud_album_id, checksum, playlist_name, save_as_filename)
-                        file_was_downloaded = True
-                if file_was_downloaded:
-                    num_items_downloaded += 1
-                break
-    logger.info(f"Downloaded {num_items_downloaded} new items from iCloud")
-    return icloud_album_id, checksums
