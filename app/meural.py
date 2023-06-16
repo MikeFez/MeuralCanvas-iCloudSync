@@ -39,12 +39,23 @@ class MeuralAPI:
             'x-meural-api-version': '3'
         }
         response = self.session.post(url, headers=headers, data=data, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
-        return response.json()['token']
+        return_value = None
+        try:
+            return_value = response.json()['token']
+        except:
+            logger.error(f"Error parsing Meural response: {response.text}")
+            raise
+        return return_value
 
     def refresh_playlist_data(self):
         logger.info("\tRefreshing Meural playlist data")
         url = f"{URL_BASE}/user/galleries?count=500&page=1"
         response = self.session.get(url, headers=self.headers, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
+        try:
+            response.json()['data']
+        except:
+            logger.error(f"Error parsing Meural response: {response.text}")
+            raise
         self.playlist_ids_by_name = {playlist['name']: playlist['id'] for playlist in response.json()['data']}
         self.uploaded_image_ids_by_playlist_name = {playlist['name']: playlist['itemIds'] for playlist in response.json()['data']}
         return
@@ -53,6 +64,13 @@ class MeuralAPI:
         logger.info("\tRefreshing Meural image data")
         url = f"{URL_BASE}/user/items?count=500&page=1"
         response = self.session.get(url, headers=self.headers, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
+        
+        try:
+            response.json()['data']
+        except:
+            logger.error(f"Error parsing Meural response: {response.text}")
+            raise
+
         for uploaded_image_data in response.json()['data']:
             album_id = None
             if "icloud_album_id" in uploaded_image_data['description']:
@@ -73,7 +91,13 @@ class MeuralAPI:
         url = f"{URL_BASE}/items"
         files = {'image': open(f"{Env.IMAGE_DIR}/{image_filename}", 'rb')}
         response = self.session.post(url, headers=self.headers, files=files, allow_redirects=True, timeout=30, verify=Env.VERIFY_SSL_CERTS)
-        return response.json()['data']['id']
+        return_value = None
+        try:
+            return_value = response.json()['data']['id']
+        except:
+            logger.error(f"Error parsing Meural response: {response.text}")
+            raise
+        return return_value
 
     def update_image_metadata(self, image_id, metadata):
         url = f"{URL_BASE}/items/{image_id}"
@@ -93,12 +117,24 @@ class MeuralAPI:
             "orientation": orientation
         }
         response = self.session.post(url, headers=self.headers, data=metadata, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
-        return response.json()['data']
+        return_value = None
+        try:
+            return_value = response.json()['data']
+        except:
+            logger.error(f"Error parsing Meural response: {response.text}")
+            raise
+        return return_value
 
     def add_image_to_playlist(self, image_id, playlist_id):
         url = f"{URL_BASE}/galleries/{playlist_id}/items/{image_id}"
         response = self.session.post(url, headers=self.headers, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
-        return response.json()['data']['itemIds']
+        return_value = None
+        try:
+            return_value = response.json()['data']['itemIds']
+        except:
+            logger.error(f"Error parsing Meural response: {response.text}")
+            raise
+        return return_value
 
 # if __name__ == "__main__":
 #     token = get_authentication_token()
