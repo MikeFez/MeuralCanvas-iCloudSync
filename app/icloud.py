@@ -49,8 +49,7 @@ class iCloudAlbum:
 
         def delete_downloaded_images(self):
             self.image_binary = None
-            for filename in self.paths_to_images_actually_downloaded:
-                absolute_path = f"{Env.IMAGE_DIR}/{filename}"
+            for absolute_path in self.paths_to_images_actually_downloaded:
                 if os.path.exists(absolute_path):
                     os.remove(absolute_path)
                     logger.info(f"[✓] Deleted {absolute_path}")
