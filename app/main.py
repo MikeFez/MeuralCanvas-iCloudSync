@@ -168,19 +168,20 @@ if __name__ == "__main__":
     logger.info(f"MeuralCanvas-iCloudSync Launched")
     if Env.DRY_RUN:
         logger.warning("Dry Run mode enabled!")
-    Env.validate_environment()
+    try:
+        Env.validate_environment()
+        Metadata.initialize()
 
-    # TODO: Ensure if something is deleted from iCloud, that it's removed from the orphaned playlist
-    Metadata.initialize()
+        user_configuration = UserConfiguration()
+        meural_api = meural.MeuralAPI(
+            username=Env.MEURAL_USERNAME,
+            password=Env.MEURAL_PASSWORD
+        )
 
-    user_configuration = UserConfiguration()
-    meural_api = meural.MeuralAPI(
-        username=Env.MEURAL_USERNAME,
-        password=Env.MEURAL_PASSWORD
-    )
-
-    while True:
-        logger.info("============================== Starting scheduled update ==============================")
-        scheduled_task(user_configuration, meural_api)
-        logger.info(f"Done! Pausing for {Env.UPDATE_FREQUENCY_MINS} minutes until next update...")
-        time.sleep(int(Env.UPDATE_FREQUENCY_MINS)*60)
+        while True:
+            logger.info("============================== Starting scheduled update ==============================")
+            scheduled_task(user_configuration, meural_api)
+            logger.info(f"Done! Pausing for {Env.UPDATE_FREQUENCY_MINS} minutes until next update...")
+            time.sleep(int(Env.UPDATE_FREQUENCY_MINS)*60)
+    except Exception as e:
+        halt_with_error(f"Fatal error occurred: {e}")
