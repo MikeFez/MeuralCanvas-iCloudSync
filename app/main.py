@@ -93,10 +93,10 @@ def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
         if this_image_was_uploaded:
             num_images_added += 1
 
-        # All work is done for this image, so delete it from the filesystem
-        if not Env.DRY_RUN:
-            logger.info(f"\tDeleting temporary images from local filesystem")
-            icloud_image.delete_downloaded_images()
+            # All work is done for this image, so delete it from the filesystem
+            if not Env.DRY_RUN:
+                logger.info(f"\tDeleting temporary images from local filesystem")
+                icloud_image.delete_downloaded_images()
 
 
     # If an image has been added, refresh uploaded meural information
@@ -109,6 +109,7 @@ def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
     return
 
 def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, meural_api):
+    # TODO: Fix this up when in dry run, as since images aren't uploaded, items are considered orphaned. Probably should just mock inject the item
     logger.info("Determining if there are any images that should be deleted from iCloud:")
     orphaned_icloud_images = []
     for icloud_image in icloud_album_obj.images:
