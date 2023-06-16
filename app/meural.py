@@ -69,9 +69,9 @@ class MeuralAPI:
             self.uploaded_filenames_by_icloud_album_id[album_id].append(uploaded_image_data['name'])
         return
 
-    def upload_image(self, image_location):
+    def upload_image(self, image_filename):
         url = f"{URL_BASE}/items"
-        files = {'image': open(image_location, 'rb')}
+        files = {'image': open(f"{Env.IMAGE_DIR}/{image_filename}", 'rb')}
         response = self.session.post(url, headers=self.headers, files=files, allow_redirects=True, timeout=30, verify=Env.VERIFY_SSL_CERTS)
         return response.json()['data']['id']
 
