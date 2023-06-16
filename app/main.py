@@ -3,6 +3,7 @@ from configuration import Env, logger, halt_with_error
 from models import Metadata, UserConfiguration
 import time
 import json
+import sys, traceback
 
 def scheduled_task(user_configuration, meural_api):
     for sync_task in user_configuration.sync_tasks:
@@ -192,4 +193,4 @@ if __name__ == "__main__":
             logger.info(f"Done! Pausing for {Env.UPDATE_FREQUENCY_MINS} minutes until next update...")
             time.sleep(int(Env.UPDATE_FREQUENCY_MINS)*60)
     except Exception as e:
-        halt_with_error(f"Fatal error occurred: {e}")
+        halt_with_error(f"Fatal error occurred: {e}\n{traceback.format_exc()}")
