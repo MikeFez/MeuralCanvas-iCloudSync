@@ -38,7 +38,7 @@ class iCloudAlbum:
 
         def download(self, filename):
             absolute_path = f"{Env.IMAGE_DIR}/{filename}"
-            logger.info(f"Downloading {self.filename}")
+            logger.info(f"Downloading {filename}")
             if self.image_binary is None:
                 self.image_binary = requests.get(self.url, verify=Env.VERIFY_SSL_CERTS).content
             if not os.path.exists(absolute_path):

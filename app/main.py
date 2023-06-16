@@ -75,7 +75,7 @@ def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
                         # Upload the image & get the meural id
                         image_id = meural_api.upload_image(save_filename)
                         # Update the image metadata in meural. If "_" is in the filename, it means that there was an associated playlist. Otherwise, the image is non-unique.
-                        metadata_playlist = meural_playlist_name if "_" not in icloud_image.filename else None
+                        metadata_playlist = meural_playlist_name if "_" not in meural_filename else None
                         metadata = {
                             "description": f'{{"icloud_album_id": "{icloud_album_obj.id}", "checksum": "{icloud_image.checksum}", "playlist_name": "{metadata_playlist}"}}'
                         }
