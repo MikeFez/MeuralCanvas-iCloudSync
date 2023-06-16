@@ -84,6 +84,7 @@ def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
                         if image_id not in image_ids_in_playlist:
                             halt_with_error(f"Failed to add image {image_id} to playlist {meural_playlist_name}")
                         Metadata.mark_image_added_to_playlist(icloud_album_obj.id, meural_filename)
+                        logger.info(f"\tUploaded {save_filename} to {meural_playlist_name}")
                     else:
                         logger.info(f"[DRY RUN]: Would have uploaded {save_filename} to {meural_playlist_name}")
                     this_image_was_uploaded = True
@@ -141,14 +142,21 @@ def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, m
 
         for orphaned_icloud_image in orphaned_icloud_images:
             if not Env.DRY_RUN:
-                save_filename = f"{orphaned_album_id}_{orphaned_icloud_image.checksum}"
+                logger.info(f"\t'{Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}' playlist not found in Meural - creating it")
+                save_filename = f"{orphaned_icloud_image.checksum}_{orphaned_album_id}"
                 icloud_image.download(save_filename)
 
-                # Upload the image & get the meural id, then add it to the playlist
+                # Upload the image & get the meural id
                 image_id = meural_api.upload_image(save_filename)
+                # Update the image metadata in meural. If "_" is in the filename, it means that there was an associated playlist. Otherwise, the image is non-unique.
+                metadata = {
+                    "description": f'{{"icloud_album_id": "{icloud_album_obj.id}", "checksum": "{icloud_image.checksum}", "playlist_name": "{Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}"}}'
+                }
+                meural_api.update_image_metadata(image_id, metadata)
                 image_ids_in_playlist = meural_api.add_image_to_playlist(image_id, orphaned_album_id)
                 if image_id not in image_ids_in_playlist:
                     halt_with_error(f"Failed to add image {image_id} to playlist {Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}")
+                logger.info(f"\tUploaded {save_filename} to {Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}")
             else:
                 logger.info(f"\r[DRY RUN]: Would have added orphaned {orphaned_icloud_image.icloud_filename} to {Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME} Meural playlist")
     else:
@@ -162,7 +170,7 @@ if __name__ == "__main__":
         logger.warning("Dry Run mode enabled!")
     Env.validate_environment()
 
-    # TODO: Somehow detect if all copies of an image were deleted, to indicate they should be removed from the icloud album
+    # TODO: Ensure if something is deleted from iCloud, that it's removed from the orphaned playlist
     Metadata.initialize()
 
     user_configuration = UserConfiguration()
