@@ -50,31 +50,42 @@ class MeuralAPI:
             raise
         return return_value
 
+    def _get_all_paginated_data(self, url):
+        return_data = []
+
+        page_to_request = 1
+        is_last_page = False
+        while is_last_page is False:
+            pagination_url = f"{url}&page={page_to_request}"
+            logger.debug(f"\t\tRequesting data from {pagination_url}")
+            response = self.session.get(pagination_url, headers=self.headers, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
+            response_json = None
+            try:
+                response_json = response.json()
+            except:
+                logger.error(f"Error parsing Meural response: {response.text}")
+                raise
+            return_data += response_json['data']
+            if response_json['data']['isPaginated'] is True and response_json['data']['isLast'] is True:
+                is_last_page = True
+            else:
+                page_to_request += 1
+        return return_data
+
     def refresh_playlist_data(self):
         logger.info("\tRefreshing Meural playlist data")
-        url = f"{URL_BASE}/user/galleries?count=500&page=1"
-        response = self.session.get(url, headers=self.headers, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
-        try:
-            response.json()['data']
-        except:
-            logger.error(f"Error parsing Meural response: {response.text}")
-            raise
-        self.playlist_ids_by_name = {playlist['name']: playlist['id'] for playlist in response.json()['data']}
-        self.uploaded_image_ids_by_playlist_name = {playlist['name']: playlist['itemIds'] for playlist in response.json()['data']}
+        url = f"{URL_BASE}/user/galleries?count=500"
+        all_data_as_dict = self._get_all_paginated_data(url)
+        self.playlist_ids_by_name = {playlist['name']: playlist['id'] for playlist in all_data_as_dict}
+        self.uploaded_image_ids_by_playlist_name = {playlist['name']: playlist['itemIds'] for playlist in all_data_as_dict}
         return
 
     def refresh_uploaded_image_data(self):
         logger.info("\tRefreshing Meural image data")
-        url = f"{URL_BASE}/user/items?count=500&page=1"
-        response = self.session.get(url, headers=self.headers, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
+        url = f"{URL_BASE}/user/items?count=500"
+        all_data_as_dict = self._get_all_paginated_data(url)
 
-        try:
-            response.json()['data']
-        except:
-            logger.error(f"Error parsing Meural response: {response.text}")
-            raise
-
-        for uploaded_image_data in response.json()['data']:
+        for uploaded_image_data in all_data_as_dict:
             album_id = None
             if "icloud_album_id" in uploaded_image_data['description']:
                 album_id = json.loads(uploaded_image_data['description'])["icloud_album_id"]
@@ -138,9 +149,3 @@ class MeuralAPI:
             logger.error(f"Error parsing Meural response: {response.text}")
             raise
         return return_value
-
-# if __name__ == "__main__":
-#     token = get_authentication_token()
-#     playlist_id = get_playlist_ids(token)
-#     print(token)
-#     print(playlist_id)

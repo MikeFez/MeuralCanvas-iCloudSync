@@ -38,13 +38,13 @@ class iCloudAlbum:
 
         def download(self, filename):
             absolute_path = f"{Env.IMAGE_DIR}/{filename}"
-            logger.info(f"Downloading {filename}")
+            logger.info(f"\tDownloading {filename}")
             if self.image_binary is None:
                 self.image_binary = requests.get(self.url, verify=Env.VERIFY_SSL_CERTS).content
             if not os.path.exists(absolute_path):
                 with open(absolute_path, 'wb') as f:
                     f.write(self.image_binary)
-                    logger.info(f"\t[✓] Saved to {absolute_path}")
+                    logger.info(f"\t\t[✓] Saved to {absolute_path}")
             self.paths_to_images_actually_downloaded.append(absolute_path)
 
         def delete_downloaded_images(self):
