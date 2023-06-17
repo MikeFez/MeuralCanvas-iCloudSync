@@ -94,7 +94,7 @@ class iCloudAlbum:
             url = f"https://{value['url_location']}{value['url_path']}&{key}"
             for checksum in checksums:
                 if checksum in url:
-                    self.images_by_checksum['checksum'] = self.__class__.Image(
+                    self.images_by_checksum[checksum] = self.__class__.Image(
                         sync_task=sync_task,
                         meural_api=meural_api,
                         checksum=checksum,
