@@ -52,9 +52,9 @@ class iCloudAlbum:
             for absolute_path in self.paths_to_images_actually_downloaded:
                 if os.path.exists(absolute_path):
                     os.remove(absolute_path)
-                    logger.info(f"[✓] Deleted {absolute_path}")
+                    logger.info(f"\t\t[✓] Deleted {absolute_path}")
                 else:
-                    logger.info(f"[!] {absolute_path} does not exist, could not delete image. It may have not been downloaded")
+                    logger.info(f"\t\t[!] {absolute_path} does not exist, could not delete image. It may have not been downloaded")
             self.paths_to_images_actually_downloaded = []
 
     def __init__(self, sync_task, meural_api):
