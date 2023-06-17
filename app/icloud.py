@@ -66,7 +66,7 @@ class iCloudAlbum:
         self.name = ""
         self.images_by_checksum = {}
         self.query_album(sync_task, meural_api)
-        logger.info(f"[✓] Identified {len(self.images_by_checksum)} images in the {self.name} iCloud album")
+        logger.info(f"[✓] Identified {len(self.images_by_checksum)} images in the {self.name} iCloud album\n")
 
     def query_album(self, sync_task, meural_api):
         logger.info(f"Retrieving iCloud album information ({self.url})")
