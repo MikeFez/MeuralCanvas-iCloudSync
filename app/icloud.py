@@ -64,10 +64,9 @@ class iCloudAlbum:
 
         # Populated by query_album()
         self.name = ""
-        self.images = []
-        self.checksums_in_this_album = []
+        self.images_by_checksum = {}
         self.query_album(sync_task, meural_api)
-        logger.info(f"[✓] Identified {len(self.images)} images in the {self.name} iCloud album")
+        logger.info(f"[✓] Identified {len(self.images_by_checksum)} images in the {self.name} iCloud album")
 
     def query_album(self, sync_task, meural_api):
         logger.info(f"Retrieving iCloud album information ({self.url})")
@@ -95,14 +94,11 @@ class iCloudAlbum:
             url = f"https://{value['url_location']}{value['url_path']}&{key}"
             for checksum in checksums:
                 if checksum in url:
-                    self.images.append(
-                        self.__class__.Image(
-                            sync_task=sync_task,
-                            meural_api=meural_api,
-                            checksum=checksum,
-                            icloud_filename=url.split('?')[0].split('/')[-1],
-                            url=url
-                        )
+                    self.images_by_checksum['checksum'] = self.__class__.Image(
+                        sync_task=sync_task,
+                        meural_api=meural_api,
+                        checksum=checksum,
+                        icloud_filename=url.split('?')[0].split('/')[-1],
+                        url=url
                     )
-                    self.checksums_in_this_album.append(checksum)
                     break

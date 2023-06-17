@@ -39,7 +39,7 @@ def _subtask_delete_orphaned_images_from_meural(icloud_album_obj, meural_api):
     if icloud_album_obj.id in meural_api.uploaded_images_by_icloud_album_id:
         for meural_image_data in meural_api.uploaded_images_by_icloud_album_id[icloud_album_obj.id]:
             json_data = json.loads(meural_image_data['description'])
-            if json_data["checksum"] not in icloud_album_obj.checksums_in_this_album:
+            if json_data["checksum"] not in icloud_album_obj.images_by_checksum:
                 logger.info(f"\tDeleting orphaned image {meural_image_data['name']} in Meural - it no longer exists in the {icloud_album_obj.name} iCloud album")
                 if not Env.DRY_RUN:
                     meural_api.delete_image(meural_image_data['id'])
@@ -63,7 +63,7 @@ def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
     logger.info("Uploading images to Meural which have been added to the iCloud album:")
     num_images_added = 0
     # Iterate through the images in the album. We're going to download them, and then add them to the associated meural playlists.
-    for icloud_image in icloud_album_obj.images:
+    for icloud_image in icloud_album_obj.images_by_checksum.values():
         this_image_was_uploaded = False
         for meural_playlist_name, save_filename in icloud_image.save_as_filenames.items():
             meural_filename = save_filename.rsplit('.', 1)[0]
@@ -113,28 +113,22 @@ def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
 def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, meural_api):
     logger.info("Determining if there are any images that should be deleted from iCloud:")
     orphaned_icloud_images = []
-    for icloud_image in icloud_album_obj.images:
+    for checksum, icloud_image in icloud_album_obj.images_by_checksum.items():
         this_checksum_is_in_meural = False
         for meural_image_data in meural_api.all_uploaded_images:
-            json_data = None
-            try:
-                # Not all images may have been from this tool, so try to unpack json but ignore the error if not
-                json_data = json.loads(meural_image_data['description'])
-            except:
-                pass
-            if json_data is None:
-                continue
-            if icloud_image.checksum == json_data["checksum"]:
+            if checksum in meural_image_data['name']:
                 this_checksum_is_in_meural = True
-                break
             # If dry run, check if the checksum is in the dry run added names
             elif Env.DRY_RUN and icloud_image.checksum in meural_api.dry_run_added_checksums:
                 this_checksum_is_in_meural = True
+
+            if this_checksum_is_in_meural is True:
                 break
         if this_checksum_is_in_meural is False:
             logger.info(f"\t{icloud_image.icloud_filename} is not in Meural, and should be removed from iCloud")
             orphaned_icloud_images.append(icloud_image)
 
+    # Create the playlist that indicates items should be deleted from iCloud if it does not exist
     if orphaned_icloud_images:
         orphaned_album_id = meural_api.playlist_ids_by_name.get(Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME, None)
         if not Env.DRY_RUN:
