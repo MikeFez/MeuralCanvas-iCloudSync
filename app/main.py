@@ -34,7 +34,7 @@ def scheduled_task(user_configuration, meural_api):
         return
 
 def _subtask_delete_orphaned_images_from_meural(icloud_album_obj, meural_api):
-    logger.info("Deleting images from Meural which are no longer in the iCloud album:")
+    logger.info("********** Determining if there are missing iCloud images that should be deleted from Meural")
     num_images_deleted = 0
     if icloud_album_obj.id in meural_api.uploaded_images_by_icloud_album_id:
         for meural_image_data in meural_api.uploaded_images_by_icloud_album_id[icloud_album_obj.id]:
@@ -60,7 +60,7 @@ def _subtask_delete_orphaned_images_from_meural(icloud_album_obj, meural_api):
     return
 
 def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
-    logger.info("Uploading images to Meural which have been added to the iCloud album:")
+    logger.info("********** Determining if there are added iCloud images that should be uploaded to Meural")
     num_images_added = 0
     # Iterate through the images in the album. We're going to download them, and then add them to the associated meural playlists.
     for icloud_image in icloud_album_obj.images_by_checksum.values():
@@ -111,7 +111,7 @@ def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
     return
 
 def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, meural_api):
-    logger.info("Determining if there are any images that should be deleted from iCloud:")
+    logger.info("********** Determining if there are missing Meural images that should be marked for deletion from iCloud")
     orphaned_icloud_images = []
     for checksum, icloud_image in icloud_album_obj.images_by_checksum.items():
         this_checksum_is_in_meural = False
