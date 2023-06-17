@@ -66,10 +66,17 @@ class MeuralAPI:
                 logger.error(f"Error parsing Meural response: {response.text}")
                 raise
             return_data += response_json['data']
-            if response_json['data']['isPaginated'] is True and response_json['data']['isLast'] is True:
-                is_last_page = True
+            if 'isPaginated' in response_json:
+                if response_json['isPaginated'] is False:
+                    logger.debug(f"\t\t\tResponse indicates data returned is not paginated")
+                    break
+                elif response_json['isPaginated'] is True and response_json['isLast'] is True:
+                    is_last_page = True
+                else:
+                    page_to_request += 1
             else:
-                page_to_request += 1
+                logger.debug(f"\t\t\tResponse indicates data returned is not paginated")
+                break
         return return_data
 
     def refresh_playlist_data(self):
