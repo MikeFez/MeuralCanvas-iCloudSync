@@ -133,6 +133,7 @@ def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, m
 
     if orphaned_icloud_images:
         if not Env.DRY_RUN:
+            logger.error(meural_api.playlist_ids_by_name)
             if Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME not in meural_api.playlist_ids_by_name.keys():
                 logger.info(f"\t'{Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}' playlist not found in Meural - creating it")
                 meural_api.create_playlist(
