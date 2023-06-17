@@ -140,6 +140,7 @@ def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, m
                     description="Items which have no versions located in Meural, and should be removed from the iCloud playlist",
                     orientation="vertical"
                 )
+                time.sleep(5)
                 meural_api.refresh_playlist_data()
         else:
             logger.info(f"\r[DRY RUN]: Would have created playlist '{Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}' in Meural")
