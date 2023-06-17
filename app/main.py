@@ -88,6 +88,7 @@ def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
                         logger.info(f"\tUploaded {save_filename} to {meural_playlist_name}")
                     else:
                         logger.info(f"[DRY RUN]: Would have uploaded {save_filename} to {meural_playlist_name}")
+                        meural_api.dry_run_added_checksums.append(icloud_image.checksum)
                     this_image_was_uploaded = True
                 else:
                     logger.debug(f"{meural_filename} was previously uploaded to Meural, but has since been deleted")
@@ -110,7 +111,6 @@ def _subtask_upload_new_images_to_meural(icloud_album_obj, meural_api):
     return
 
 def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, meural_api):
-    # TODO: Fix this up when in dry run, as since images aren't uploaded, items are considered orphaned. Probably should just mock inject the item
     logger.info("Determining if there are any images that should be deleted from iCloud:")
     orphaned_icloud_images = []
     for icloud_image in icloud_album_obj.images:
@@ -127,13 +127,18 @@ def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, m
             if icloud_image.checksum == json_data["checksum"]:
                 this_checksum_is_in_meural = True
                 break
+            # If dry run, check if the checksum is in the dry run added names
+            elif Env.DRY_RUN and icloud_image.checksum in meural_api.dry_run_added_checksums:
+                this_checksum_is_in_meural = True
+                break
         if this_checksum_is_in_meural is False:
             logger.info(f"\t{icloud_image.icloud_filename} is not in Meural, and should be removed from iCloud")
             orphaned_icloud_images.append(icloud_image)
 
     if orphaned_icloud_images:
+        orphaned_album_id = meural_api.playlist_ids_by_name.get(Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME, None)
         if not Env.DRY_RUN:
-            if Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME not in meural_api.playlist_ids_by_name:
+            if orphaned_album_id is None:
                 logger.info(f"\t'{Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}' playlist not found in Meural - creating it")
                 meural_api.create_playlist(
                     name=Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME,
@@ -141,17 +146,14 @@ def _subtask_add_orphaned_images_to_remove_from_icloud_album(icloud_album_obj, m
                     orientation="vertical"
                 )
                 meural_api.refresh_playlist_data()
+                orphaned_album_id = meural_api.playlist_ids_by_name.get(Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME)
+
         else:
             logger.info(f"\r[DRY RUN]: Would have created playlist '{Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}' in Meural")
 
-        # Only grab this if not a dry run, as it may not have been made otherwise
-        orphaned_album_id = None
-        if not Env.DRY_RUN:
-            orphaned_album_id = meural_api.playlist_ids_by_name[Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME]
-
         for orphaned_icloud_image in orphaned_icloud_images:
             if not Env.DRY_RUN:
-                logger.info(f"\t'{Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}' playlist not found in Meural - creating it")
+                logger.info(f"\tPreparing to add orphaned {icloud_image.icloud_filename} to the '{Env.DELETE_FROM_ICLOUD_PLAYLIST_NAME}' Meural playlist.")
                 original_extension = orphaned_icloud_image.icloud_filename.rsplit('.', 1)[-1]
                 save_filename = f"{orphaned_icloud_image.checksum}_{orphaned_album_id}.{original_extension}"
                 icloud_image.download(save_filename)

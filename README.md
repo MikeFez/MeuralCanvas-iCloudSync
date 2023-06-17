@@ -62,9 +62,9 @@ These parameters do not have to be provided, as they have defaults
 
 | Parameter | Default | Function |
 | :----: | --- |
-| `-e DRY_RUN` | `false` | Your Netgear Meural email address. |
-| `-e VERIFY_SSL_CERTS` | `true` | Your Netgear Meural email password. |
-| `-e LOG_LEVEL` | `INFO` | The frequency between syncronization runs. |
+| `-e DRY_RUN` | `false` | Will output actions (deleting/uploading) that would have occurred. |
+| `-e VERIFY_SSL_CERTS` | `true` | Ignore SSL certs for iCloud & Meural when enabled. |
+| `-e LOG_LEVEL` | `INFO` | The level of logging which should be outputted. |
 
 ## Configuration
 Configuration is managed via `config.yaml`, which should be mounted into the `/config` directory. This file must exist prior to launching the container, and will be validated before syncing occurs. An example of the file can be seen here:

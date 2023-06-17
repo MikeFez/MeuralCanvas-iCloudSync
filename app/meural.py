@@ -28,6 +28,9 @@ class MeuralAPI:
         self.all_uploaded_images = []
         self.refresh_uploaded_image_data()
 
+        # For use with dry run logic since we can't actually add images to Meural
+        self.dry_run_added_checksums = []
+
 
     def get_authentication_token(self, username, password):
         url = f"{URL_BASE}/authenticate"
@@ -64,7 +67,7 @@ class MeuralAPI:
         logger.info("\tRefreshing Meural image data")
         url = f"{URL_BASE}/user/items?count=500&page=1"
         response = self.session.get(url, headers=self.headers, allow_redirects=True, timeout=15, verify=Env.VERIFY_SSL_CERTS)
-        
+
         try:
             response.json()['data']
         except:
